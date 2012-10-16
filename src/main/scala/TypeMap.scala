@@ -49,7 +49,8 @@ class TypeMap(tmap : HashMap[Type, Type]) extends {
     
     def chain_unify(tpoly: Type, tpoly_binding: Type) = 
       if (typemap.contains(tpoly)) unify(typemap(tpoly), tpoly_binding)
-	  else this.append(tpoly, tpoly_binding)
+      else if (typemap.contains(tpoly_binding)) unify(tpoly, typemap(tpoly_binding))
+      else this.append(tpoly, tpoly_binding)
 	  
     t1 match {
       
