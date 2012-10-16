@@ -11,11 +11,11 @@ object Main extends App {
 		  						FunCall(VarRef("a"), List(ValInt(12), ValInt(15))))
   val test_ast_5 = FunCall(VarRef("+"), List(ValInt(12), ValInt(15)))
   val test_ast_6 = LetBind("a", test_ast_2,
-		  						FunCall(VarRef("a"), List(ValInt(12), ValInt(15))))
+		  						         FunCall(VarRef("a"), List(ValInt(12), ValInt(15))))
   
                                             
   val varmap = VarMap.default
-  println(test_ast_2.typecheck(varmap, new TypeMap()))
+  println(test_ast_6.typecheck(varmap, new TypeMap()))
 
   /*
   println(varmap.getType("="))

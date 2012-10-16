@@ -17,9 +17,6 @@ class Expr {
 	
 	def typecheck(varmap: VarMap, typemap: TypeMap) : TypedExpr = {
 	  val (texpr, tmap) = this.type_infer(varmap, typemap)
-    println("IN TYPECHECK", tmap)
-    val stmap = tmap.simplify()
-    println("IN TYPECHECK 2", stmap)
 	  texpr.typeSubst(tmap.simplify())
 	}
 	
