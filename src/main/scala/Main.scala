@@ -20,4 +20,6 @@ object Main extends App {
 
   val test_ast_polyfun = FunCall(VarRef("="), List(ValInt(5), ValInt(15)))
   println(test_ast_polyfun.typecheck(varmap, new TypeMap()))
+  val test_ast_polyfun_2 = FunCall(VarRef("="), List(ValInt(5), ValString("lool")))
+  println(test_ast_polyfun_2.typecheck(varmap, new TypeMap()))
 }
