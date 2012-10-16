@@ -13,7 +13,6 @@ object Main extends App {
   val test_ast_6 = LetBind("a", test_ast_2,
 		  						FunCall(VarRef("a"), List(ValInt(12), ValInt(15))))
   
-  val varmap = new VarMap(List(("+", TypeFunction(List(TypeInt, TypeInt, TypeInt)))).toMap)
                                             
   println(test_ast_6.typecheck(varmap, new TypeMap()))
 }

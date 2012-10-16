@@ -44,15 +44,15 @@ class Expr {
           case _ => {
             println("IN MATCH", tfun.typ)
             var tmap = ntmap
-          val typed_args = args.map(expr => {
-            val (texpr, ntmap) = expr.type_infer(varmap, tmap)
-            tmap = ntmap
-            texpr
-          })
-          val ret_type = new TypePoly()
+            val typed_args = args.map(expr => {
+              val (texpr, ntmap) = expr.type_infer(varmap, tmap)
+              tmap = ntmap
+              texpr
+            })
+            val ret_type = new TypePoly()
             val fun_type = new TypeFunction(typed_args.map(x => x.typ) :+ ret_type)
-          tmap = tmap.unify(tfun.typ, fun_type)
-          (TFunCall(ret_type, tfun, typed_args), tmap)
+            tmap = tmap.unify(tfun.typ, fun_type)
+            (TFunCall(ret_type, tfun, typed_args), tmap)
           }
         }
       }

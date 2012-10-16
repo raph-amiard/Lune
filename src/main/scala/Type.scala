@@ -8,15 +8,19 @@ sealed trait AbstractType {
 }
 
 class TypeMold(t: Type) extends AbstractType {
-  override def get() = t.getFresh
+  override def get() = {
+    val (nt, _) = t.getFresh(new HashMap[Type, Type]())
+    nt
+  }
 }
 
 /* ==================================================
  * Basic class representing a type
  * =================================================*/
 sealed trait Type extends AbstractType {
+  type Ctx = HashMap[Type, Type]
   def concretize(typemap: TypeMap) : Type = this
-  def getFresh() = this
+  def getFresh(ctx : Ctx) : (Type, Ctx) = (this, ctx)
   override def get() = this
 }
 
@@ -44,7 +48,12 @@ case class TypePoly(id: Int) extends Type {
   def this() = this(TypePoly.nextPoly())
   override def concretize(typemap: TypeMap) : Type = typemap.bestType(this)
   override def toString() = "P" + id.toString
-  override def getFresh() = new TypePoly()
+  override def getFresh(ctx : Ctx) = 
+    if (ctx.contains(this)) (ctx(this), ctx)
+    else {
+      val ptype = new TypePoly()
+      (ptype, ctx + ((this, ptype)))
+    }
 }
 
 /* ==================================================
@@ -67,5 +76,12 @@ case class TypeFunction(ts: List[Type]) extends Type {
     ts.mkString(" -> ")
   }
   
-  override def getFresh() = new TypeFunction(ts.map(_.getFresh))
+  override def getFresh(ctx : Ctx) = {
+    var cctx = ctx
+    new TypeFunction(ts.map {
+      val (ntype, nctx) = _.getFresh(cctx)
+      cctx = nctx
+      ntype
+    })
+  }
 }
