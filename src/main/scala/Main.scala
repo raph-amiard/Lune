@@ -16,4 +16,5 @@ object Main extends App {
                                             
   val varmap = VarMap.default
   println(test_ast_6.typecheck(varmap, new TypeMap()))
+  println(varmap("=").get())
 }
