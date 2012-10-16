@@ -30,7 +30,8 @@ object Main extends App {
                                   IfExpr(FunCall(VarRef("="), List(VarRef("a"), ValInt(0))),
                                          ValInt(1),
                                          FunCall(VarRef("fact"), 
-                                                 List(FunCall(VarRef("-"), List(VarRef("a"), ValInt(1))))))))
+                                                 List(FunCall(VarRef("-"), List(VarRef("a"), ValInt(1))))))),
+                          FunCall(VarRef("fact"), List(ValInt(5))))
 
   println(test_ast_9.typecheck(varmap, new TypeMap()))
 }
