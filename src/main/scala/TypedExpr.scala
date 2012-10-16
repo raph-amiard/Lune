@@ -49,3 +49,10 @@ case class TLetBind(_type: Type, name: String, expr: TypedExpr, body: TypedExpr)
   override def toString() =
     "let (" + name + " : " + _type + ") = " + expr.toString + " in " + body.toString
 }
+
+case class TIfExpr(_type: Type, cond: TypedExpr, body: TypedExpr, alt: TypedExpr) extends TypedExpr(_type) {
+  override def typeSubst(tm : TypeMap) : TIfExpr =
+    TIfExpr(_type.concretize(tm), cond.typeSubst(tm), body.typeSubst(tm), alt.typeSubst(tm))
+  override def toString() =
+    "if " + cond + " then " + body + " else " + alt
+}
