@@ -68,8 +68,8 @@ class Expr {
 
       case IfExpr(cond, body, alt) => {
         val (tcond, tmap1) = cond.type_infer(varmap, typemap)
-        val (tbody, tmap2) = cond.type_infer(varmap, tmap1)
-        val (talt, tmap3) = cond.type_infer(varmap, tmap2)
+        val (tbody, tmap2) = body.type_infer(varmap, tmap1)
+        val (talt, tmap3) = alt.type_infer(varmap, tmap2)
         val tmap = tmap3.unify(tbody.typ, talt.typ).unify(tcond.typ, TypeBool)
         (TIfExpr(tbody.typ, tcond, tbody, talt), tmap)
       }
