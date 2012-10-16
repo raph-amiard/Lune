@@ -26,5 +26,5 @@ object Main extends App {
                           FunCall(VarRef("="), List(ValString("lol"), ValString("lolz"))),
                           FunCall(VarRef("="), List(ValBool(true), ValBool(false))))
   println(test_ast_8.typecheck(varmap, new TypeMap()))
-*/
+  */
 }

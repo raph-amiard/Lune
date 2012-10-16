@@ -67,6 +67,7 @@ class Expr {
           val final_texpr = texpr.typeSubst(s_tmap)
           val new_varmap = varmap.withMold(name, final_texpr.typ)
           val (tbody, new_tmap) = body.type_infer(new_varmap, s_tmap)
+          println("IN LETBIND", final_texpr.typ, tbody.typ)
           (TLetBind(tbody.typ, name, final_texpr, tbody), new_tmap)
         }
 
