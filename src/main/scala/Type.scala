@@ -78,10 +78,10 @@ case class TypeFunction(ts: List[Type]) extends Type {
   
   override def getFresh(ctx : Ctx) = {
     var cctx = ctx
-    new TypeFunction(ts.map(x => {
+    (new TypeFunction(ts.map(x => {
       val (ntype, nctx) = x.getFresh(cctx)
       cctx = nctx
       ntype
-    }))
+    })), cctx)
   }
 }
