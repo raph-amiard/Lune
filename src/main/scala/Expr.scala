@@ -61,7 +61,7 @@ class Expr {
       case LetBind(name, expr, body) => {
         val nvarmap = varmap.bindName(name)
         val (texpr, tmap) = expr.type_infer(varmap, typemap)
-        val ntmap = tmap.unify(nvarmap.getType(name), ttexpr.typ).simplify()
+        val ntmap = tmap.unify(nvarmap.getType(name), texpr.typ).simplify()
         val final_texpr = texpr.typeSubst(ntmap)
         val nvarmap2 = nvarmap.withMold(name, final_texpr.typ)
         val (tbody, ntmap2) = body.type_infer(nvarmap2, ntmap)
