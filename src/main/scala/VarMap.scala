@@ -22,6 +22,7 @@ object VarMap {
   val default = new VarMap(
     List(
       ("+", TypeFunction(List(TypeInt, TypeInt, TypeInt))),
+      ("-", TypeFunction(List(TypeInt, TypeInt, TypeInt))),
       ("=", new TypeMold(TypeFunction(List(tpoly, tpoly, TypeBool))))
     ).toMap
   )
