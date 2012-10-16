@@ -18,8 +18,9 @@ object Main extends App {
   println(test_ast_6.typecheck(varmap, new TypeMap()))
   println(varmap.getType("="))
 
-  val test_ast_polyfun = FunCall(VarRef("="), List(ValInt(5), ValInt(15)))
-  println(test_ast_polyfun.typecheck(varmap, new TypeMap()))
-  val test_ast_polyfun_2 = FunCall(VarRef("="), List(ValInt(5), ValString("lool")))
-  println(test_ast_polyfun_2.typecheck(varmap, new TypeMap()))
+  val test_ast_7 = FunCall(VarRef("="), List(ValInt(5), ValInt(15)))
+  println(test_ast_7.typecheck(varmap, new TypeMap()))
+
+  val test_ast_8 = IfExpr(test_ast_7, ValInt(2), ValInt(3))
+  println(test_ast_8.typecheck(varmap, new TypeMap()))
 }
