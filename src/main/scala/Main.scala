@@ -16,8 +16,9 @@ object Main extends App {
                                             
   val varmap = VarMap.default
   println(test_ast_6.typecheck(varmap, new TypeMap()))
-  println(varmap.getType("="))
 
+  /*
+  println(varmap.getType("="))
   val test_ast_7 = FunCall(VarRef("="), List(ValInt(5), ValInt(15)))
   println(test_ast_7.typecheck(varmap, new TypeMap()))
 
@@ -25,4 +26,5 @@ object Main extends App {
                           FunCall(VarRef("="), List(ValString("lol"), ValString("lolz"))),
                           FunCall(VarRef("="), List(ValBool(true), ValBool(false))))
   println(test_ast_8.typecheck(varmap, new TypeMap()))
+*/
 }
