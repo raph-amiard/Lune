@@ -71,7 +71,7 @@ class Expr {
         val (tbody, tmap2) = cond.type_infer(varmap, tmap1)
         val (talt, tmap3) = cond.type_infer(varmap, tmap2)
         tmap = tmap3.unify(tbody.typ, talt.typ).unify(tcond.typ, TypeBool)
-        (TIfExpr(tbody.typ, tcond, tbody, talt)
+        (TIfExpr(tbody.typ, tcond, tbody, talt))
       }
 
 	  }
