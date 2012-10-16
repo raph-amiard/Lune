@@ -30,8 +30,8 @@ class Expr {
       case VarRef(id) => withTMap(TVarRef(varmap.getType(id), id))
       
       case FunDef(args, body) => {
-        val args_types = args.map(new_varmap.getType(_))
         val new_varmap = varmap.bindNames(args)
+        val args_types = args.map(new_varmap.getType(_))
         val (texpr, tmap) = body.type_infer(new_varmap, typemap)
         val fun_type = new TypeFunction(args_types :+ texpr.typ)
         (TFunDef(fun_type, args, texpr), tmap)
