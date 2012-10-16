@@ -10,7 +10,7 @@ case class VarRef(id: String) extends Expr
 case class FunCall(fun: Expr, args: List[Expr]) extends Expr
 case class FunDef(args: List[String], body: Expr) extends Expr
 case class LetBind(name: String, expr: Expr, body: Expr) extends Expr
-case class IfExpr(cond: Expr, body: expr, alt:expr) extends Expr
+case class IfExpr(cond: Expr, body: Expr, alt:Expr) extends Expr
 
 // Expression type definition
 class Expr {
@@ -70,7 +70,7 @@ class Expr {
         val (tcond, tmap1) = cond.type_infer(varmap, typemap)
         val (tbody, tmap2) = cond.type_infer(varmap, tmap1)
         val (talt, tmap3) = cond.type_infer(varmap, tmap2)
-        tmap = tmap3.unify(tbody.typ, talt.typ).unify(tcond.typ, TypeBool)
+        val tmap = tmap3.unify(tbody.typ, talt.typ).unify(tcond.typ, TypeBool)
         (TIfExpr(tbody.typ, tcond, tbody, talt))
       }
 
