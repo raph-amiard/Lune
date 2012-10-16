@@ -21,6 +21,8 @@ object Main extends App {
   val test_ast_7 = FunCall(VarRef("="), List(ValInt(5), ValInt(15)))
   println(test_ast_7.typecheck(varmap, new TypeMap()))
 
-  val test_ast_8 = IfExpr(test_ast_7, ValInt(2), ValInt(3))
+  val test_ast_8 = IfExpr(test_ast_7, 
+                          FunCall(VarRef("="), List(ValString("lol"), ValString("lolz"))),
+                          FunCall(VarRef("="), List(ValBool(true), ValBool(false))))
   println(test_ast_8.typecheck(varmap, new TypeMap()))
 }
