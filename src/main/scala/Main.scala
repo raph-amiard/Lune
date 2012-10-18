@@ -1,31 +1,18 @@
 package main.scala
-import main.java.lexparse.lunegrammarLexer
-import main.java.lexparse.lunegrammarParser
-import org.antlr.runtime.ANTLRStringStream
-import org.antlr.runtime.tree.CommonTree
-import org.antlr.runtime.CommonTokenStream
+import main.scala.Typing._
 
 object Main extends App {
-  val lex = new lunegrammarLexer(new ANTLRStringStream("def a b c = + b c"))
-  val tkstream = new CommonTokenStream(lex)
-  val parser : lunegrammarParser = new lunegrammarParser(tkstream)
-  val tree : CommonTree = parser.top().getTree() match {
-    case t : CommonTree => t
-    case _ => throw new ClassCastException()
-  }
-  println(tree.getChildCount())
-  println(tree.getText())
-  println(tree.getChildren())
-  for (i <- 0 until tree.getChildCount()) {
-    val c = tree.getChild(i).asInstanceOf[CommonTree]
-    println("TEXT", c.getText())
-    println("TYPE", c.getType())
-    println("TOKEN", c.getToken())
-    println("PARENT", c.getParent())
-    println("CHILDREN", c.getChildren())
-  }
-  println(tree.getChildren().get(1).asInstanceOf[CommonTree].getChildren())
-  /*
+  
+  val varmap = VarMap.default
+  println(LuneParser("let a = 2 in 5"))
+  println(LuneParser("a b c d"))
+  println(LuneParser("let add = fun a b -> + a b in add 1 2"))
+  println(LuneParser("if == a 1 then 12 else 14"))
+  println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12"))
+  println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12").typecheck(varmap, new TypeMap()))
+  println(LuneParser("+ 5.23 5").typecheck(varmap, new TypeMap)._1.typ)
+  
+/*  
   val test_ast =
 	  FunDef(List("a","b"),
 			 FunCall(FunCall(VarRef("+"),
@@ -39,7 +26,6 @@ object Main extends App {
 		  						         FunCall(VarRef("a"), List(ValInt(12), ValInt(15))))
   
                                
-  val varmap = VarMap.default
   println(test_ast_6.typecheck(varmap, new TypeMap()))
 
   println(varmap.getType("="))

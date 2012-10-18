@@ -13,8 +13,6 @@ class VarMap(varmap : Map[String, AbstractType]) {
   def withMold(binding: String, t: Type) : VarMap = 
     new VarMap(varmap + ((binding, new TypeMold(t))))
 
-
-
 }
 
 object VarMap {
@@ -22,8 +20,9 @@ object VarMap {
   val default = new VarMap(
     List(
       ("+", TypeFunction(List(TypeInt, TypeInt, TypeInt))),
+      ("*", TypeFunction(List(TypeInt, TypeInt, TypeInt))),
       ("-", TypeFunction(List(TypeInt, TypeInt, TypeInt))),
-      ("=", new TypeMold(TypeFunction(List(tpoly, tpoly, TypeBool))))
+      ("==", new TypeMold(TypeFunction(List(tpoly, tpoly, TypeBool))))
     ).toMap
   )
 }
