@@ -1,16 +1,33 @@
 package main.scala
 import main.scala.Typing._
+import main.scala.Interpreter._
 
 object Main extends App {
   
   val varmap = VarMap.default
-  println(LuneParser("let a = 2 in 5"))
+  /*println(LuneParser("let a = 2 in 5"))
   println(LuneParser("a b c d"))
   println(LuneParser("let add = fun a b -> + a b in add 1 2"))
-  println(LuneParser("if == a 1 then 12 else 14"))
   println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12"))
+  */
+  
   println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12").typecheck(varmap, new TypeMap()))
-  println(LuneParser("+ 5.23 5").typecheck(varmap, new TypeMap)._1.typ)
+  
+  println(LuneParser("+ 5 5").typecheck(varmap, new TypeMap)._1.typ)
+  println(LuneParser("+ 5 5").typecheck(varmap, new TypeMap)._1.eval(Interpreter.prims))
+  println(LuneParser("let a = 2 in if == a 2 then 12 else 14").typecheck(varmap, new TypeMap)._1.eval(Interpreter.prims))
+  
+  def readExpr() : String = {
+    val input = readLine()
+    if (input.endsWith(";;")) input.replace(";;", "")
+    else input + "\n" + readExpr()
+  }
+  
+  while (true) {
+    val input = readExpr()
+    val  
+    println(LuneParser(input).typecheck(varmap,))
+  }
   
 /*  
   val test_ast =
