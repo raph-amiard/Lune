@@ -35,6 +35,10 @@ case object TypeBool extends TypePrim { override def toString() = "bool"}
 case object TypeDouble extends TypePrim { override def toString() = "double"}
 
 /* ==================================================
+ * ADTs
+ * =================================================*/
+
+/* ==================================================
  * Type Poly type definition
  * a Poly Type is a type that is not bounded 
  * (doesn't have any concrete constraints)

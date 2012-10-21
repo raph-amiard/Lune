@@ -11,6 +11,7 @@ import scala.collection.immutable.Map
  * type relations is also deferred to it
  * =================================================*/
 class TypeMap(tmap : HashMap[Type, Type]) extends {
+  
   def this() = this(new HashMap[Type, Type])
   
   override def toString() = typemap.toString
@@ -55,10 +56,10 @@ class TypeMap(tmap : HashMap[Type, Type]) extends {
     t1 match {
       
       case TypePrim() => t2 match {
-        case TypePrim() => {
-          assert(t1 == t2)
-          this
-        }
+        case TypePrim() => 
+          if (t1 != t2) throw new Exception("Got type " + t2 + " where type " + t1 + " was expected")
+          else this
+          
         case TypePoly(id) => chain_unify(t2, t1)
         case TypeFunction(_) => throw new Exception("Can't unify Prim type and function type")
       }

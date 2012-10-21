@@ -50,9 +50,22 @@ case class TLetBind(_type: Type, name: String, expr: TypedExpr, body: TypedExpr)
     "let (" + name + " : " + _type + ") = " + expr.toString + " in " + body.toString
 }
 
+case class TDef(_type: Type, name: String, expr: TypedExpr) extends TypedExpr(_type) {
+
+  override def typeSubst(tm : TypeMap) : TDef =
+    TDef(_type.concretize(tm), name, expr.typeSubst(tm))
+
+  override def toString() =
+    "def (" + name + " : " + _type + ") = " + expr.toString
+
+}
+
 case class TIfExpr(_type: Type, cond: TypedExpr, body: TypedExpr, alt: TypedExpr) extends TypedExpr(_type) {
+  
   override def typeSubst(tm : TypeMap) : TIfExpr =
     TIfExpr(_type.concretize(tm), cond.typeSubst(tm), body.typeSubst(tm), alt.typeSubst(tm))
+    
   override def toString() =
     "if " + cond + " then " + body + " else " + alt
+    
 }

@@ -23,10 +23,28 @@ object Main extends App {
     else input + "\n" + readExpr()
   }
   
+  var repl_varmap = varmap
+  var repl_typemap = new TypeMap
+  var env = Interpreter.prims
+  
   while (true) {
+    print(" > ")
+    System.out.flush()
     val input = readExpr()
-    val  
-    println(LuneParser(input).typecheck(varmap,))
+    try {
+      val (texpr, ntmap, nvmap) = LuneParser(input).typecheck(repl_varmap, repl_typemap)
+      println(texpr)
+      repl_varmap = nvmap
+      repl_typemap = ntmap
+      try {
+        val v = texpr.eval(env)
+        println("= " + v.toString)
+      } catch {
+        case e => println("Runtime error : " + e.getMessage())
+      }
+    } catch {
+      case e => println("Type error : " + e.getMessage())
+    }
   }
   
 /*  

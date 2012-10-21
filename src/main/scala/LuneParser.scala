@@ -22,6 +22,11 @@ object LuneParser extends RegexParsers {
     					  else LetBind(ids(0), FunDef(ids.tail, e1), e2)
   }
   
+  def defst : Parser[Expr] = ("def" ~> (T_ID+) <~ "=") ~! expr ^^ {
+    case ids ~ e1 => if (ids.length == 1) Def(ids(0), e1)
+    				 else Def(ids(0), FunDef(ids.tail, e1))
+  }
+  
   def lambda : Parser[Expr] = (("fun" ~> (T_ID+)) <~ "->") ~ expr ^^ {
     case ids ~ e1 => FunDef(ids, e1)
   }
@@ -30,21 +35,17 @@ object LuneParser extends RegexParsers {
     case cond ~ body ~ alt => IfExpr(cond, body, alt)
   }
   
-  /*def defst : Parser[Expr] = ("def" ~> (T_ID+) <~ "=") ~! expr ^^ {
-    case ids ~ e1 => if (ids.length == 1) LetBind(ids(0), e1, e2)
-    				 else LetBind(ids(0), FunDef(ids.tail, e1), e2)
-  }*/
-  
   def expr : Parser[Expr] = let | lambda | ifxp | app
+  def toplevel = defst | expr
   
-  def KWS = """(let|in|=|fun|->|if|then|else)"""
+  def KWS = """(let|in|=|fun|->|if|then|else|def)"""
   
   def T_NUMBER = """^[-+]?[0-9]+(\.[0-9]+)?""".r  
   def T_ID : Parser[String] = """[a-zA-Z\_\+\-\/\|\>\<\=\*]+""".r ^? {
     case x if !(x.matches(KWS)) => x
   }
   
-  def apply(input: String): Expr = parseAll(expr, input) match {
+  def apply(input: String): Expr = parseAll(toplevel, input) match {
     case Success(result, _) => result
     case failure : NoSuccess => scala.sys.error(failure.msg)
   }

@@ -1,33 +1,33 @@
 package main.scala
 
-import scala.collection.immutable.HashMap
-import scala.math.Numeric
-
 object Interpreter {
+  import scala.collection.mutable.Map
+  import scala.math.Numeric
   
   implicit def evalObject(e : TypedExpr) = new EvalObject(e)
   
-  class Environnment (h : Map[String, Value]) {
-    def get(s : String) = h(s)
+  class Environnment (h : Map[String, Value], parent : Option[Environnment]) {
     
-    def addBinding(s : String, v : Value) = new Environnment(h + ((s, v)))
+    def get(str : String) : Value = 
+      h.getOrElse(str, parent match {
+        case Some(p) => p.get(str)
+        case None => throw new Exception("Unfound key " + str + " in env")
+      })
+      
+    def addBinding(s : String, v : Value) = 
+      if (!h.contains(s)) h += s->v
+      else throw new Exception("Already bound var : " + s)
     
-    def addBindings(vars : List[String], vals : List[Value]) : Environnment =
-      new Environnment((vars zip vals).foldLeft(this.h)((hmap, t) => hmap + t))
+    def withBinding(s : String, v : Value) = new Environnment(Map(s->v), Option(this))
+    
+    def withBindings(vars : List[String], vals : List[Value]) : Environnment = 
+      new Environnment(Map() ++= (vars zip vals).toMap, Option(this))
+    
   }
-  
-  def add[T](x: T, y : T)(implicit num : Numeric[T]) = {
-    import num._
-    x + y
-  }
-  
   
   type GNumOp = ((Int, Int) => Int,
 		  		 (Double, Double) => Double)
 		  		 
-  val a : GNumOp = (((x, y) => x + y),
-		  			((x, y) => x + y))
-  
   abstract class Value(v : Any) {
     override def toString() = v.toString
     
@@ -58,7 +58,6 @@ object Interpreter {
     
     def app(pvalues: List[Value]) : Value = {
       val (needed, rest) = pvalues.splitAt(arity - args_vals.length)
-      println("IN APP", needed, rest)
       val args = args_vals ++ needed
 	    if (args.length < arity) this withArgs args
 	    else this.run(args) match {
@@ -70,16 +69,18 @@ object Interpreter {
     
   }
   
-  case class NativeFunc(params: List[String], e : TypedExpr, env: Environnment, args_vals : List[Value]) extends FuncValue(args_vals) {
+  case class NativeFunc(params: List[String], e : TypedExpr, env: Environnment, _type : Type, args_vals : List[Value]) extends FuncValue(args_vals) {
     
-    def this(params : List[String], e : TypedExpr, env : Environnment) = 
-      this(params, e, env, List())
+    def this(params : List[String], e : TypedExpr, env : Environnment, _type : Type) = 
+      this(params, e, env, _type, List())
       
     def withArgs(args : List[Value]) : NativeFunc = 
-      new NativeFunc(params, e, env, args)
+      new NativeFunc(params, e, env, _type, args)
     
     def arity = params.length
-    def run(l : List[Value]) = e.eval(env.addBindings(params, l)) 
+    def run(l : List[Value]) = e.eval(env.withBindings(params, l)) 
+    
+    override def toString() = "fun(" + _type + ")"
     
   }
   
@@ -97,13 +98,13 @@ object Interpreter {
     
   }
   
-  val prims = new Environnment(List(
-    ("+" ,new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x + y), ((x, y) => x + y))(lv(1)))),
-    ("-" ,new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x - y), ((x, y) => x - y))(lv(1)))),
-    ("*" ,new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x * y), ((x, y) => x * y))(lv(1)))),
-    ("/" ,new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x / y), ((x, y) => x / y))(lv(1)))),
-    ("==", new PrimFunc(2, (lv) => new BoolValue(lv(0) == lv(1))))
-  ).toMap)
+  val prims = new Environnment(Map(
+    ("+" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x + y), ((x, y) => x + y))(lv(1)))),
+    ("-" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x - y), ((x, y) => x - y))(lv(1)))),
+    ("*" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x * y), ((x, y) => x * y))(lv(1)))),
+    ("/" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x / y), ((x, y) => x / y))(lv(1)))),
+    ("==" -> new PrimFunc(2, (lv) => new BoolValue(lv(0) == lv(1))))
+  ), None)
   
   class EvalObject(e: TypedExpr) {
     
@@ -114,14 +115,23 @@ object Interpreter {
         case TValBool(v) => BoolValue(v)
         case TValDouble(v) => DoubleValue(v)
         case TVarRef(_, id) => env.get(id)
-        case TFunDef(_, args, body) => new NativeFunc(args, body, env)
+        case TFunDef(typ, args, body) => new NativeFunc(args, body, env, typ)
+        
         case TFunCall(_, fun, args) => 
           fun.eval(env).asInstanceOf[FuncValue].app(args.map(_.eval(env)))
-        case TLetBind(_, name, expr, body) => 
-          body.eval(env.addBinding(name, expr.eval(env)))
+          
+        case TLetBind(_, name, expr, body) =>
+          body.eval(env.withBinding(name, expr.eval(env)))
+        
         case TIfExpr(_, cond, body, alt) => 
           if (cond.eval(env).asInstanceOf[BoolValue].v == true) body.eval(env)
           else alt.eval(env)
+        
+        case TDef(_, name, expr) => {
+          val v = expr.eval(env)
+          env.addBinding(name, v)
+          v
+        }
       }
     }
     
