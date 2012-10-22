@@ -48,7 +48,7 @@ object Typing {
 	          (TFunCall(ret_type, tfun, typed_args), tmap, varmap)
 	        }
 	      }
-        }
+	    }
 
 	    case LetBind(name, expr, body) => {
 	      val nvarmap = varmap.bindName(name)
@@ -76,6 +76,14 @@ object Typing {
 	      val (talt, tmap3, _) = alt.type_infer(varmap, tmap2)
 	      val tmap = tmap3.unify(tbody.typ, talt.typ).unify(tcond.typ, TypeBool)
 	      (TIfExpr(tbody.typ, tcond, tbody, talt), tmap, varmap)
+	    }
+	    
+	    case Tuple(exprs) => {
+	      val (tmap, texprs) = exprs.foldLeft(typemap, List[TypedExpr]())((tmap, expr) => {
+	        val (txpr, ntmap, _) = expr.type_infer(varmap, tmap._1)
+	        (ntmap, tmap._2.:+(txpr))
+	      })
+	      (TTuple(ProductType(texprs.map(_.typ)), texprs), tmap, varmap)
 	    }
 	    
       }

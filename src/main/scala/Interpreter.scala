@@ -48,6 +48,9 @@ object Interpreter {
   case class DoubleValue(v: Double) extends Value(v)
   case class StringValue(v: String) extends Value(v)
   case class BoolValue(v: Boolean) extends Value(v)
+  case class TupleValue(v: List[Value]) extends Value(v) {
+    override def toString() = "(" + (v mkString ", ") + ")"
+  }
   case class FunValue() extends Value
   
   abstract class FuncValue(args_vals : List[Value]) extends Value {
@@ -131,6 +134,11 @@ object Interpreter {
           val v = expr.eval(env)
           env.addBinding(name, v)
           v
+        }
+        
+        case TTuple(_, exprs) => {
+          val evexprs = exprs.map(_.eval(env))
+          TupleValue(evexprs)
         }
       }
     }

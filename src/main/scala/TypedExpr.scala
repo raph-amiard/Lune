@@ -69,3 +69,11 @@ case class TIfExpr(_type: Type, cond: TypedExpr, body: TypedExpr, alt: TypedExpr
     "if " + cond + " then " + body + " else " + alt
     
 }
+
+case class TTuple(_type: Type, exprs : List[TypedExpr]) extends TypedExpr(_type) {
+  
+  override def typeSubst(tm : TypeMap) : TTuple = 
+    TTuple(_type concretize tm , exprs.map(_.typeSubst(tm)))
+    
+  override def toString() = "(" + (exprs mkString ", ") + ")"
+}

@@ -12,6 +12,7 @@ case class FunDef(args: List[String], body: Expr) extends Expr
 case class LetBind(name: String, expr: Expr, body: Expr) extends Expr
 case class Def(name: String, expr: Expr) extends Expr
 case class IfExpr(cond: Expr, body: Expr, alt:Expr) extends Expr
+case class Tuple(exprs : List[Expr]) extends Expr
 
 // Expression type definition
 class Expr {

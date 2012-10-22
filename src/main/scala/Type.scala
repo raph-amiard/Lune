@@ -35,10 +35,6 @@ case object TypeBool extends TypePrim { override def toString() = "bool"}
 case object TypeDouble extends TypePrim { override def toString() = "double"}
 
 /* ==================================================
- * ADTs
- * =================================================*/
-
-/* ==================================================
  * Type Poly type definition
  * a Poly Type is a type that is not bounded 
  * (doesn't have any concrete constraints)
@@ -84,6 +80,27 @@ case class TypeFunction(ts: List[Type]) extends Type {
     var cctx = ctx
     (new TypeFunction(ts.map(x => {
       val (ntype, nctx) = x.getFresh(cctx)
+      cctx = nctx
+      ntype
+    })), cctx)
+  }
+}
+
+/* ==================================================
+ * ADTs
+ * =================================================*/
+
+case class ProductType(ts : List[Type]) extends Type {
+  
+  override def concretize(typemap: TypeMap) : ProductType = new ProductType(ts.map(_.concretize(typemap)))
+  
+  override def toString() =
+    ts mkString " * " 
+  
+  override def getFresh(ctx : Ctx) = {
+    var cctx = ctx
+    (new ProductType(ts map (x => {
+      val (ntype, nctx) = x getFresh cctx
       cctx = nctx
       ntype
     })), cctx)

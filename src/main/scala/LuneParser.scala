@@ -10,7 +10,9 @@ object LuneParser extends RegexParsers {
   )
   
   def basic_expr = number | varref
-  def paren_expr = "(" ~> expr <~ ")"
+  def tuple_body = repsep(expr, ",") ^^ ( x => { if (x.length == 1) x(0) else Tuple(x)})
+  
+  def paren_expr = "(" ~> tuple_body <~ ")"
   def p_expr = basic_expr | paren_expr
   def app = (p_expr+) ^^ {
     case h :: Nil => h
