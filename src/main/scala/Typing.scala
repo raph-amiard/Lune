@@ -14,19 +14,31 @@ object Typing {
 
 	def type_infer(varmap: VarMap, typemap: TypeMap) : (TypedExpr, TypeMap, VarMap) = {
 	  def withTMap(t: TypedExpr) = (t, typemap, varmap)
+	  
 	  e match {
+	    
 	    case ValInt(v) => withTMap(TValInt(v))
 	    case ValString(v) => withTMap(TValString(v))
 	    case ValBool(v) => withTMap(TValBool(v))
 	    case ValDouble(v) => withTMap(TValDouble(v))
 	    case VarRef(id) => withTMap(TVarRef(varmap.getType(id), id))
 
-	    case FunDef(args, body) => {
-	      val new_varmap = varmap.bindNames(args)
-	      val args_types = args.map(new_varmap.getType(_))
-	      val (texpr, tmap, _) = body.type_infer(new_varmap, typemap)
-	      val fun_type = new TypeFunction(args_types :+ texpr.typ)
-	      (TFunDef(fun_type, args, texpr), tmap, varmap)
+        case FunDef(args, body) => {
+          var nvarmap = varmap
+          
+          def build(arg : Arg) : Type = arg match {
+            case SimpleArg(str) => {
+              nvarmap = nvarmap bindName str
+              nvarmap getType str
+            }
+            case TupleArg(args) => new ProductType(args.map(build))
+          }
+            
+          val args_types = args.map(build)
+          
+          val (texpr, tmap, _) = body.type_infer(nvarmap, typemap)
+          val fun_type = new TypeFunction(args_types :+ texpr.typ)
+          (TFunDef(fun_type, args, texpr), tmap, varmap)
 	    }
 
 	    case FunCall(fun, args) => {

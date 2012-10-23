@@ -92,7 +92,8 @@ case class TypeFunction(ts: List[Type]) extends Type {
 
 case class ProductType(ts : List[Type]) extends Type {
   
-  override def concretize(typemap: TypeMap) : ProductType = new ProductType(ts.map(_.concretize(typemap)))
+  override def concretize(typemap: TypeMap) : ProductType = 
+    new ProductType(ts.map(_.concretize(typemap)))
   
   override def toString() =
     ts mkString " * " 

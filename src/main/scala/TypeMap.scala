@@ -62,11 +62,26 @@ class TypeMap(tmap : HashMap[Type, Type]) extends {
           
         case TypePoly(id) => chain_unify(t2, t1)
         case TypeFunction(_) => throw new Exception("Can't unify Prim type and function type")
+        case ProductType(_) => throw new Exception("Can't unify Prim type and tuple type")
       }
       
       case TypePoly(_) => chain_unify(t1, t2)
       
+      case ProductType(ts1) => t2 match {
+        case TypePoly(_) => chain_unify(t1, t2)
+        case ProductType(ts2) => 
+          if (ts1.length != ts2.length) throw new Exception("Incompatible tuple types")
+          else {
+            var ntm = this
+            (ts1 zip ts2).map { case (t1, t2) => ntm = ntm.unify(t1, t2) }
+            ntm
+          }
+        case _ => throw new Exception("Incompatible types")
+      }
+        
+      
       case tf1 : TypeFunction => t2 match {
+        case ProductType(_) => throw new Exception("Can't unify function type and tuple")
         case TypePoly(_) => chain_unify(t2, t1)
         case TypePrim() => throw new Exception("Can't unify Prim type and function type")
         case tf2 : TypeFunction => {
@@ -75,6 +90,7 @@ class TypeMap(tmap : HashMap[Type, Type]) extends {
           this.unify(t1, t2).unify(tail1, tail2)
         }
       }
+      
     }
   }
 }

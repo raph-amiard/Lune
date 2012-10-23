@@ -31,7 +31,7 @@ case class TFunCall(_type: Type, fun: TypedExpr, args: List[TypedExpr]) extends 
   override def toString() = "(" + (fun +: args).map(_.toString).mkString(" ") + ")"
 }
 
-case class TFunDef(_type: TypeFunction, args: List[String], body: TypedExpr) extends TypedExpr(_type) {
+case class TFunDef(_type: TypeFunction, args: List[Arg], body: TypedExpr) extends TypedExpr(_type) {
   override def typeSubst(tm : TypeMap) : TFunDef = 
     TFunDef(_type.concretize(tm), args, body.typeSubst(tm))
     

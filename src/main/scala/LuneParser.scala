@@ -14,23 +14,33 @@ object LuneParser extends RegexParsers {
   
   def paren_expr = "(" ~> tuple_body <~ ")"
   def p_expr = basic_expr | paren_expr
+  
   def app = (p_expr+) ^^ {
     case h :: Nil => h
     case h :: t => FunCall(h, t)
   }
   
-  def let : Parser[Expr] = (("let" ~> (T_ID+) <~ "=") ~! expr <~ "in") ~! expr ^^ {
-    case ids ~ e1 ~ e2 => if (ids.length == 1) LetBind(ids(0), e1, e2)
-    					  else LetBind(ids(0), FunDef(ids.tail, e1), e2)
+  def simple_arg = T_ID ^^ { SimpleArg(_) }
+  def tuple_arg = "(" ~> repsep(arg_pattern, ",") <~ ")" ^^ { TupleArg(_) }
+  def arg_pattern : Parser[Arg] = simple_arg | tuple_arg 
+  def fundeflist = arg_pattern+
+  
+  def let : Parser[Expr] = (("let" ~> (T_ID ~ (fundeflist?)) <~ "=") ~! expr <~ "in") ~! expr ^^ {
+    case id ~ opt_args ~ e1 ~ e2 => opt_args match {
+      case Some(args) => LetBind(id, FunDef(args, e1), e2)
+      case None => LetBind(id, e1, e2)
+    }
   }
   
-  def defst : Parser[Expr] = ("def" ~> (T_ID+) <~ "=") ~! expr ^^ {
-    case ids ~ e1 => if (ids.length == 1) Def(ids(0), e1)
-    				 else Def(ids(0), FunDef(ids.tail, e1))
+  def defst : Parser[Expr] = ("def" ~> (T_ID ~ (fundeflist?)) <~ "=") ~! expr ^^ {
+    case id ~ opt_args ~ e1 => opt_args match {
+      case Some(args) => Def(id, FunDef(args, e1))
+      case None => Def(id, e1)
+    }
   }
   
-  def lambda : Parser[Expr] = (("fun" ~> (T_ID+)) <~ "->") ~ expr ^^ {
-    case ids ~ e1 => FunDef(ids, e1)
+  def lambda : Parser[Expr] = (("fun" ~> fundeflist) <~ "->") ~ expr ^^ {
+    case args ~ e1 => FunDef(args, e1)
   }
   
   def ifxp = (("if" ~> expr <~ "then") ~ expr <~ "else") ~ expr ^^ {

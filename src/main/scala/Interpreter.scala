@@ -20,6 +20,8 @@ object Interpreter {
     
     def withBinding(s : String, v : Value) = new Environnment(Map(s->v), Option(this))
     
+    def fresh() = new Environnment(Map(), Option(this))
+    
     def withBindings(vars : List[String], vals : List[Value]) : Environnment = 
       new Environnment(Map() ++= (vars zip vals).toMap, Option(this))
     
@@ -72,16 +74,29 @@ object Interpreter {
     
   }
   
-  case class NativeFunc(params: List[String], e : TypedExpr, env: Environnment, _type : Type, args_vals : List[Value]) extends FuncValue(args_vals) {
+  case class NativeFunc(params: List[Arg], e : TypedExpr, env: Environnment, _type : Type, args_vals : List[Value]) extends FuncValue(args_vals) {
     
-    def this(params : List[String], e : TypedExpr, env : Environnment, _type : Type) = 
+    def this(params : List[Arg], e : TypedExpr, env : Environnment, _type : Type) = 
       this(params, e, env, _type, List())
       
     def withArgs(args : List[Value]) : NativeFunc = 
       new NativeFunc(params, e, env, _type, args)
     
     def arity = params.length
-    def run(l : List[Value]) = e.eval(env.withBindings(params, l)) 
+    
+    def run(l : List[Value]) = {
+      val new_env = env.fresh()
+      
+      def bind_val(av : (Arg, Value)) : Unit = av match {
+        case (SimpleArg(s), v) => new_env.addBinding(s, v)
+        case (TupleArg(as), TupleValue(vs)) => (as zip vs) foreach bind_val
+        case _ => throw new Exception("WTF")
+	  }
+      
+      (params zip l) foreach bind_val
+      println("NEW ENV", new_env)
+      e.eval(new_env) 
+    }
     
     override def toString() = "fun(" + _type + ")"
     
