@@ -96,7 +96,7 @@ case class ProductType(ts : List[Type]) extends Type {
     new ProductType(ts.map(_.concretize(typemap)))
   
   override def toString() =
-    ts mkString " * " 
+    "(" + (ts mkString " * ") + ")" 
   
   override def getFresh(ctx : Ctx) = {
     var cctx = ctx
