@@ -89,7 +89,7 @@ object Interpreter {
       
       def bind_val(av : (Arg, Value)) : Unit = av match {
         case (SimpleArg(s), v) => new_env.addBinding(s, v)
-        case (TupleArg(as), TupleValue(vs)) => (as zip vs) foreach bind_val
+        case (TupleMatch(as), TupleValue(vs)) => (as zip vs) foreach bind_val
         case _ => throw new Exception("WTF")
 	  }
       

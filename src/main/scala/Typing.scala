@@ -6,96 +6,97 @@ object Typing {
 
   class AutoTypingExpr(e: Expr) {
     
-	def typecheck(varmap: VarMap, typemap: TypeMap) : (TypedExpr, TypeMap, VarMap) = {
-	  val (texpr, tmap, nvarmap) = this.type_infer(varmap, typemap)
-	  val ntmap = tmap.simplify()
-	  (texpr.typeSubst(ntmap), ntmap, nvarmap)
+	def typecheck(type_env : TypeEnv) : (TypedExpr, TypeEnv) = {
+	  val (texpr, tenv) = this.type_infer(type_env)
+	  val ntenv = tenv.simplify()
+	  (texpr.typeSubst(ntenv), ntenv)
 	}
 
-	def type_infer(varmap: VarMap, typemap: TypeMap) : (TypedExpr, TypeMap, VarMap) = {
-	  def withTMap(t: TypedExpr) = (t, typemap, varmap)
+	def type_infer(type_env : TypeEnv) : (TypedExpr, TypeEnv) = {
+	  def withTypeEnv(t: TypedExpr) = (t, type_env)
 	  
 	  e match {
 	    
-	    case ValInt(v) => withTMap(TValInt(v))
-	    case ValString(v) => withTMap(TValString(v))
-	    case ValBool(v) => withTMap(TValBool(v))
-	    case ValDouble(v) => withTMap(TValDouble(v))
-	    case VarRef(id) => withTMap(TVarRef(varmap.getType(id), id))
+	    case ValInt(v) => withTypeEnv(TValInt(v))
+	    case ValString(v) => withTypeEnv(TValString(v))
+	    case ValBool(v) => withTypeEnv(TValBool(v))
+	    case ValDouble(v) => withTypeEnv(TValDouble(v))
+	    case VarRef(id) => withTypeEnv(TVarRef(type_env.getVarType(id), id))
 
         case FunDef(args, body) => {
-          var nvarmap = varmap
+          var ntenv = type_env
           
           def build(arg : Arg) : Type = arg match {
             case SimpleArg(str) => {
-              nvarmap = nvarmap bindName str
-              nvarmap getType str
+              ntenv = ntenv withVarToPoly str
+              ntenv getVarType str
             }
-            case TupleArg(args) => new ProductType(args.map(build))
+            case TupleMatch(args) => new ProductType(args.map(build))
           }
             
           val args_types = args.map(build)
           
-          val (texpr, tmap, _) = body.type_infer(nvarmap, typemap)
+          val (texpr, ntenv2) = body.type_infer(ntenv)
           val fun_type = new TypeFunction(args_types :+ texpr.typ)
-          (TFunDef(fun_type, args, texpr), tmap, varmap)
+          (TFunDef(fun_type, args, texpr), ntenv2)
 	    }
 
 	    case FunCall(fun, args) => {
 	      println("IN FUNCALL", fun, args)
-	      val (tfun, ntmap, _) = fun.type_infer(varmap, typemap)
+	      val (tfun, ntenv) = fun.type_infer(type_env)
 	      tfun.typ match {
 	        case TypePrim() => throw new Exception("Can't call a non function type")
 	        case _ => {
 	          println("IN MATCH", tfun.typ)
-	          var tmap = ntmap
+	          var tenv = ntenv
 	          val typed_args = args.map(expr => {
-	            val (texpr, ntmap, _) = expr.type_infer(varmap, tmap)
-	            tmap = ntmap
+	            val (texpr, ntenv) = expr.type_infer(tenv)
+	            tenv = ntenv
 	            texpr
 	          })
 	          val ret_type = new TypePoly()
 	          val fun_type = new TypeFunction(typed_args.map(x => x.typ) :+ ret_type)
-	          tmap = tmap.unify(tfun.typ, fun_type)
-	          (TFunCall(ret_type, tfun, typed_args), tmap, varmap)
+	          tenv = tenv.unifyTypes(tfun.typ, fun_type)
+	          (TFunCall(ret_type, tfun, typed_args), tenv)
 	        }
 	      }
 	    }
 
 	    case LetBind(name, expr, body) => {
-	      val nvarmap = varmap.bindName(name)
-	      val (texpr, tmap, _) = expr.type_infer(nvarmap, typemap)
-	      val ntmap = tmap.unify(nvarmap.getType(name), texpr.typ).simplify()
-	      val final_texpr = texpr.typeSubst(ntmap)
-	      val nvarmap2 = nvarmap.withMold(name, final_texpr.typ)
-	      val (tbody, ntmap2, _) = body.type_infer(nvarmap2, ntmap)
+	      val ntenv = type_env withVarToPoly name
+	      val (texpr, ntenv2) = expr.type_infer(ntenv)
+	      val ntenv3 = ntenv2.unifyVar(name, texpr.typ).simplify()
+	      val final_texpr = texpr.typeSubst(ntenv3)
+	      val (tbody, ntenv4) = body.type_infer(ntenv3.withVarToMold(name, final_texpr.typ))
 	      println("IN LETBIND", final_texpr.typ, tbody.typ)
-	      (TLetBind(tbody.typ, name, final_texpr, tbody), ntmap2, varmap)
+	      (TLetBind(tbody.typ, name, final_texpr, tbody), ntenv4)
 	    }
 	    
 	    case Def(name, expr) => {
-	      val nvarmap = varmap.bindName(name)
-	      val (texpr, tmap, _) = expr.type_infer(nvarmap, typemap)
-	      val ntmap = tmap.unify(nvarmap.getType(name), texpr.typ).simplify()
-	      val final_texpr = texpr.typeSubst(ntmap)
-	      val nvarmap2 = nvarmap.withMold(name, final_texpr.typ)
-	      (TDef(final_texpr.typ, name, final_texpr), ntmap, nvarmap2)
+	      val ntenv = type_env withVarToPoly name
+	      val (texpr, ntenv2) = expr.type_infer(ntenv)
+	      val ntenv3 = ntenv2.unifyVar(name, texpr.typ).simplify()
+	      val final_texpr = texpr.typeSubst(ntenv3)
+	      val ntenv4 = ntenv3.withVarToMold(name, final_texpr.typ)
+	      (TDef(final_texpr.typ, name, final_texpr), ntenv4)
 	    }
 
 	    case IfExpr(cond, body, alt) => {
-	      val (tcond, tmap1, _) = cond.type_infer(varmap, typemap)
-	      val (tbody, tmap2, _) = body.type_infer(varmap, tmap1)
-	      val (talt, tmap3, _) = alt.type_infer(varmap, tmap2)
-	      val tmap = tmap3.unify(tbody.typ, talt.typ).unify(tcond.typ, TypeBool)
-	      (TIfExpr(tbody.typ, tcond, tbody, talt), tmap, varmap)
+	      val (tcond, ntenv) = cond.type_infer(type_env)
+	      val (tbody, ntenv2) = body.type_infer(ntenv)
+	      val (talt, ntenv3) = alt.type_infer(ntenv2)
+	      val ntenv4 = ntenv3.unifyTypes(tbody.typ, talt.typ).unifyTypes(tcond.typ, TypeBool)
+	      (TIfExpr(tbody.typ, tcond, tbody, talt), ntenv4)
 	    }
 	    
 	    case Tuple(exprs) => {
-	      val (tmap, texprs) = exprs.foldLeft(typemap, List[TypedExpr]())((tmap, expr) => {
-	        val (txpr, ntmap, _) = expr.type_infer(varmap, tmap._1)
-	        (ntmap, tmap._2.:+(txpr))
+	      val (tenv, texprs) = exprs.foldLeft(type_env, List[TypedExpr]())((accu, expr) => accu match {
+	        case (tenv, le) => {
+		      val (txpr, ntenv) = expr.type_infer(tenv)
+		      (ntenv, le :+ txpr)
+	        }
 	      })
-	      (TTuple(ProductType(texprs.map(_.typ)), texprs), tmap, varmap)
+	      (TTuple(ProductType(texprs.map(_.typ)), texprs), tenv)
 	    }
 	    
       }

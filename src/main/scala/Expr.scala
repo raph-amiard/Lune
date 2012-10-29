@@ -4,7 +4,7 @@ import scala.collection.immutable.Map
 
 class Arg
 case class SimpleArg(str : String) extends Arg
-case class TupleArg(args: List[Arg]) extends Arg
+case class TupleMatch(args: List[Arg]) extends Arg
 
 case class ValInt(v: Int) extends Expr
 case class ValString(v: String) extends Expr
@@ -17,7 +17,8 @@ case class LetBind(name: String, expr: Expr, body: Expr) extends Expr
 case class Def(name: String, expr: Expr) extends Expr
 case class IfExpr(cond: Expr, body: Expr, alt:Expr) extends Expr
 case class Tuple(exprs : List[Expr]) extends Expr
-case class TypeExpr(t: Type) extends Expr
+case class TypeDef(name: String, t: TypeExpr) extends Expr
+case class TypeExpr(t : Type) extends Expr
 
 // Expression type definition
 class Expr 

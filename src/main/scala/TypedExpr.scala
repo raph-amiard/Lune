@@ -3,7 +3,7 @@ package main.scala
 // TExpr and TypedExpr type definitions
 class TypedExpr(t: Type) {
   val typ = t
-  def typeSubst(tm : TypeMap) : TypedExpr = this
+  def typeSubst(te : TypeEnv) : TypedExpr = this
 } 
 case class TValInt(v: Int) extends TypedExpr(TypeInt) {
   override def toString() = v.toString
@@ -19,21 +19,21 @@ case class TValDouble(v: Double) extends TypedExpr(TypeDouble) {
 }
 
 case class TVarRef(_type: Type, id: String) extends TypedExpr(_type) {
-  override def typeSubst(tm : TypeMap) : TVarRef =
-    TVarRef(typ.concretize(tm), id)
+  override def typeSubst(te : TypeEnv) : TVarRef =
+    TVarRef(typ.concretize(te), id)
   override def toString() = id
 }
 
 case class TFunCall(_type: Type, fun: TypedExpr, args: List[TypedExpr]) extends TypedExpr(_type) {
-  override def typeSubst(tm : TypeMap) : TFunCall = 
-    TFunCall(typ.concretize(tm), fun.typeSubst(tm), args.map(_.typeSubst(tm)))
+  override def typeSubst(te : TypeEnv) : TFunCall = 
+    TFunCall(typ.concretize(te), fun.typeSubst(te), args.map(_.typeSubst(te)))
     
   override def toString() = "(" + (fun +: args).map(_.toString).mkString(" ") + ")"
 }
 
 case class TFunDef(_type: TypeFunction, args: List[Arg], body: TypedExpr) extends TypedExpr(_type) {
-  override def typeSubst(tm : TypeMap) : TFunDef = 
-    TFunDef(_type.concretize(tm), args, body.typeSubst(tm))
+  override def typeSubst(te : TypeEnv) : TFunDef = 
+    TFunDef(_type.concretize(te), args, body.typeSubst(te))
     
   override def toString() =
     "fun (" + args.zip(_type.ts).map({
@@ -43,8 +43,8 @@ case class TFunDef(_type: TypeFunction, args: List[Arg], body: TypedExpr) extend
 }
 
 case class TLetBind(_type: Type, name: String, expr: TypedExpr, body: TypedExpr) extends TypedExpr(_type) {
-  override def typeSubst(tm : TypeMap) : TLetBind =
-    TLetBind(_type.concretize(tm), name, expr.typeSubst(tm), body.typeSubst(tm))
+  override def typeSubst(te : TypeEnv) : TLetBind =
+    TLetBind(_type.concretize(te), name, expr.typeSubst(te), body.typeSubst(te))
   
   override def toString() =
     "let (" + name + " : " + _type + ") = " + expr.toString + " in " + body.toString
@@ -52,8 +52,8 @@ case class TLetBind(_type: Type, name: String, expr: TypedExpr, body: TypedExpr)
 
 case class TDef(_type: Type, name: String, expr: TypedExpr) extends TypedExpr(_type) {
 
-  override def typeSubst(tm : TypeMap) : TDef =
-    TDef(_type.concretize(tm), name, expr.typeSubst(tm))
+  override def typeSubst(te : TypeEnv) : TDef =
+    TDef(_type.concretize(te), name, expr.typeSubst(te))
 
   override def toString() =
     "def (" + name + " : " + _type + ") = " + expr.toString
@@ -62,8 +62,8 @@ case class TDef(_type: Type, name: String, expr: TypedExpr) extends TypedExpr(_t
 
 case class TIfExpr(_type: Type, cond: TypedExpr, body: TypedExpr, alt: TypedExpr) extends TypedExpr(_type) {
   
-  override def typeSubst(tm : TypeMap) : TIfExpr =
-    TIfExpr(_type.concretize(tm), cond.typeSubst(tm), body.typeSubst(tm), alt.typeSubst(tm))
+  override def typeSubst(te : TypeEnv) : TIfExpr =
+    TIfExpr(_type.concretize(te), cond.typeSubst(te), body.typeSubst(te), alt.typeSubst(te))
     
   override def toString() =
     "if " + cond + " then " + body + " else " + alt
@@ -72,8 +72,8 @@ case class TIfExpr(_type: Type, cond: TypedExpr, body: TypedExpr, alt: TypedExpr
 
 case class TTuple(_type: Type, exprs : List[TypedExpr]) extends TypedExpr(_type) {
   
-  override def typeSubst(tm : TypeMap) : TTuple = 
-    TTuple(_type concretize tm , exprs.map(_.typeSubst(tm)))
+  override def typeSubst(te : TypeEnv) : TTuple = 
+    TTuple(_type concretize te , exprs.map(_.typeSubst(te)))
     
   override def toString() = "(" + (exprs mkString ", ") + ")"
 }

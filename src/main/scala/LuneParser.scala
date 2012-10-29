@@ -21,7 +21,7 @@ object LuneParser extends RegexParsers {
   }
 
   def simple_arg = T_ID ^^ { SimpleArg(_) }
-  def tuple_arg = "(" ~> repsep(arg_pattern, ",") <~ ")" ^^ { TupleArg(_) }
+  def tuple_arg = "(" ~> repsep(arg_pattern, ",") <~ ")" ^^ { TupleMatch(_) }
   def arg_pattern : Parser[Arg] = simple_arg | tuple_arg 
   def fundeflist = arg_pattern+
 

@@ -4,18 +4,18 @@ import main.scala.Interpreter._
 
 object Main extends App {
   
-  val varmap = VarMap.default
+  val type_env = new TypeEnv
   /*println(LuneParser("let a = 2 in 5"))
   println(LuneParser("a b c d"))
   println(LuneParser("let add = fun a b -> + a b in add 1 2"))
   println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12"))
   */
   
-  println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12").typecheck(varmap, new TypeMap()))
+  println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12").typecheck(type_env))
   
-  println(LuneParser("+ 5 5").typecheck(varmap, new TypeMap)._1.typ)
-  println(LuneParser("+ 5 5").typecheck(varmap, new TypeMap)._1.eval(Interpreter.prims))
-  println(LuneParser("let a = 2 in if == a 2 then 12 else 14").typecheck(varmap, new TypeMap)._1.eval(Interpreter.prims))
+  println(LuneParser("+ 5 5").typecheck(type_env)._1.typ)
+  println(LuneParser("+ 5 5").typecheck(type_env)._1.eval(Interpreter.prims))
+  println(LuneParser("let a = 2 in if == a 2 then 12 else 14").typecheck(type_env)._1.eval(Interpreter.prims))
   
   def readExpr() : String = {
     val input = readLine()
@@ -23,8 +23,7 @@ object Main extends App {
     else input + "\n" + readExpr()
   }
   
-  var repl_varmap = varmap
-  var repl_typemap = new TypeMap
+  var repl_tenv = type_env
   var env = Interpreter.prims
   
   while (true) {
@@ -32,10 +31,9 @@ object Main extends App {
     System.out.flush()
     val input = readExpr()
     try {
-      val (texpr, ntmap, nvmap) = LuneParser(input).typecheck(repl_varmap, repl_typemap)
+      val (texpr, ntenv) = LuneParser(input).typecheck(repl_tenv)
       println(texpr)
-      repl_varmap = nvmap
-      repl_typemap = ntmap
+      repl_tenv = ntenv
       try {
         val v = texpr.eval(env)
         println("= " + v.toString)
