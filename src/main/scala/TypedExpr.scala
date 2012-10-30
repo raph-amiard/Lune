@@ -17,6 +17,9 @@ case class TValBool(v: Boolean) extends TypedExpr(TypeBool) {
 case class TValDouble(v: Double) extends TypedExpr(TypeDouble) {
   override def toString() = v.toString
 }
+case object TValUnit extends TypedExpr(TypeUnit) {
+  override def toString() = "()"
+}
 
 case class TVarRef(_type: Type, id: String) extends TypedExpr(_type) {
   override def typeSubst(te : TypeEnv) : TVarRef =
@@ -77,3 +80,5 @@ case class TTuple(_type: Type, exprs : List[TypedExpr]) extends TypedExpr(_type)
     
   override def toString() = "(" + (exprs mkString ", ") + ")"
 }
+
+case class TType(_type : Type) extends TypedExpr(_type)

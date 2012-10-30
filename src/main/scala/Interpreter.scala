@@ -46,6 +46,9 @@ object Interpreter {
     
   }
   
+  case object UnitValue extends Value(null) {
+    override def toString() = "()"
+  }
   case class IntValue(v : Int) extends Value(v)
   case class DoubleValue(v: Double) extends Value(v)
   case class StringValue(v: String) extends Value(v)
@@ -132,6 +135,7 @@ object Interpreter {
         case TValString(v) => StringValue(v)
         case TValBool(v) => BoolValue(v)
         case TValDouble(v) => DoubleValue(v)
+        case TValUnit => UnitValue
         case TVarRef(_, id) => env.get(id)
         case TFunDef(typ, args, body) => new NativeFunc(args, body, env, typ)
         

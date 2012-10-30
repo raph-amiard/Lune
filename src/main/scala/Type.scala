@@ -33,6 +33,7 @@ case object TypeInt extends TypePrim { override def toString() = "int"}
 case object TypeString extends TypePrim { override def toString() = "string"}
 case object TypeBool extends TypePrim { override def toString() = "bool"}
 case object TypeDouble extends TypePrim { override def toString() = "double"}
+case object TypeUnit extends TypePrim { override def toString() = "()"}
 
 /* ==================================================
  * Type Poly type definition

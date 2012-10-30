@@ -99,6 +99,33 @@ object Typing {
 	      (TTuple(ProductType(texprs.map(_.typ)), texprs), tenv)
 	    }
 	    
+	    case TypeDef(name, ptype_bindings, t) => {
+	      val tenv = ptype_bindings.foldLeft(type_env)((tenv, b) => tenv.withAliasToPoly(b))
+	      t.type_infer(tenv) match {
+	        case (TType(tt), ntenv) => (TValUnit, ntenv.withAliasToMold(name, tt))
+	        case _ => throw new Exception("CAN NOT HAPPEN")
+	      }
+	    }
+	    
+	    case NamedTypeExpr(t) => (TType(t match {
+	      case "int" => TypeInt
+	      case "double" => TypeDouble
+	      case "float" => TypeDouble
+	      case "bool" => TypeBool
+	      case "nil" => TypeUnit
+	      case x => type_env.getAlias(x)
+	    }), type_env)
+	    
+	    case ParametricTypeInst(tn, ts) => {
+	      val types = ts.map(x => x.type_infer(type_env) match {
+	        case (TType(tt), _) => tt
+	        case _ => throw new Exception("Can not happen")
+	      })
+	    }
+	    case ProductTypeExpr(ts) =>
+	    case UnionTypeExpr(ts) =>
+	    
+	    
       }
 	}
   }

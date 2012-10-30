@@ -4,29 +4,36 @@ import scala.collection.immutable.HashMap
 import scala.collection.immutable.Map
 
 object TypeEnv {
+  
   val tpoly = new TypePoly()
+  
   type VarMap = Map[String, AbstractType]
   type TypeMap = HashMap[Type, Type]
-  type AliasMap = Map[String, AbstractType]
-  type TypeConsMap = Map[String, Type]
+  type AliasMap = HashMap[String, AbstractType]
+  type TypeConsMap = HashMap[String, Type]
+  
   val default_varmap : VarMap = Map(
     "+" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
     "*" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
     "-" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
     "=="-> new TypeMold(TypeFunction(List(tpoly, tpoly, TypeBool)))
   )
+  
 }
 
 class TypeEnv(varmap : TypeEnv.VarMap, tmap : TypeEnv.TypeMap, amap : TypeEnv.AliasMap, tconsmap : TypeEnv.TypeConsMap) {
   
-  def this() = this(TypeEnv.default_varmap, new HashMap[Type, Type], new HashMap[String, AbstractType])
+  def this() = this(TypeEnv.default_varmap, new TypeEnv.TypeMap, new TypeEnv.AliasMap, new TypeEnv.TypeConsMap)
   
   def copyWith(varmap : TypeEnv.VarMap = varmap,
 		  	   tmap : TypeEnv.TypeMap = tmap,
-		  	   amap : TypeEnv.AliasMap = amap) = 
-    new TypeEnv(varmap, tmap, amap)
+		  	   amap : TypeEnv.AliasMap = amap,
+		  	   tconsmap : TypeEnv.TypeConsMap = tconsmap) = 
+    new TypeEnv(varmap, tmap, amap, tconsmap)
   
-  def withAlias(name : String, t : Type) = copyWith(amap = amap + (name -> t))
+  def withAliasToMold(name : String, t : Type) = copyWith(amap = amap + (name -> new TypeMold(t)))
+  def withAliasToPoly(name : String) = copyWith(amap = amap + (name -> new TypePoly))
+  def getAlias(name : String) = amap(name).get()
   
   def getVarType(binding : String) = varmap(binding).get()
 
