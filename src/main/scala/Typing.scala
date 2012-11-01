@@ -122,6 +122,7 @@ object Typing {
 	        case _ => throw new Exception("Can not happen")
 	      })
 	    }
+
 	    case ProductTypeExpr(ts) =>
 	    case UnionTypeExpr(ts) =>
 	    
