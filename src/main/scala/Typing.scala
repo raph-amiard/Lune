@@ -1,5 +1,7 @@
 package main.scala
 
+import scala.collection.immutable.HashMap
+
 object Typing {
 
   implicit def autoTypingExpr(e : Expr) = new AutoTypingExpr(e)
@@ -14,6 +16,10 @@ object Typing {
 
 	def type_infer(type_env : TypeEnv) : (TypedExpr, TypeEnv) = {
 	  def withTypeEnv(t: TypedExpr) = (t, type_env)
+	  def typesFromExprs(ts : List[Expr]) = ts.map(x => x.type_infer(type_env) match {
+        case (TType(tt), _) => tt
+        case _ => throw new Exception("Can not happen")
+	  })
 	  
 	  e match {
 	    
@@ -100,9 +106,18 @@ object Typing {
 	    }
 	    
 	    case TypeDef(name, ptype_bindings, t) => {
-	      val tenv = ptype_bindings.foldLeft(type_env)((tenv, b) => tenv.withAliasToPoly(b))
+	      val polytypes = ptype_bindings.map(_ => new TypePoly)
+	      val tenv = (ptype_bindings zip polytypes).foldLeft(type_env)((tenv, b) => b match {
+	        case (s, t) => tenv.withAlias(s, t)
+	      }).withTypeName(name)
 	      t.type_infer(tenv) match {
-	        case (TType(tt), ntenv) => (TValUnit, ntenv.withAliasToMold(name, tt))
+	        case (TType(tt), ntenv) => {
+	          val ptype = if (polytypes.isEmpty) tt else new ParametricType(tt, polytypes)
+	          println("TYPE : " + ptype)
+	          val ntenv2 = ntenv.withAlias(name, ptype)
+	          println(ntenv2)
+	          (TValUnit, ntenv2)
+	        }
 	        case _ => throw new Exception("CAN NOT HAPPEN")
 	      }
 	    }
@@ -117,16 +132,96 @@ object Typing {
 	    }), type_env)
 	    
 	    case ParametricTypeInst(tn, ts) => {
-	      val types = ts.map(x => x.type_infer(type_env) match {
-	        case (TType(tt), _) => tt
-	        case _ => throw new Exception("Can not happen")
-	      })
+	      val types = typesFromExprs(ts)
+	      val ptype_instance = type_env.getAliasRaw(tn) match {
+	        case t : ParametricType => t.instanciate(types)
+	        case _ => throw new Exception("Trying to instanciate a non parametric type")
+	      }
+	      (TType(ptype_instance), type_env)
 	    }
 
-	    case ProductTypeExpr(ts) =>
-	    case UnionTypeExpr(ts) =>
+	    case ProductTypeExpr(ts) => (TType(ProductType(typesFromExprs(ts))), type_env)
 	    
+	    case SumTypeExpr(ts) => {
+	      type_env.ctypename match {
+	        case Some(name) => {
+	          // Get constructor names and type expressions
+	          val (conses, texprs) = ts.unzip
+	          val types = typesFromExprs(texprs.toList)
+	          val m = (conses zip types).toMap
+	          val sum_type = SumType(name, m)
+	          var ntenv = type_env
+	          (conses zip types) foreach {
+	            case (cons, typ) => {
+	              val fntype = new TypeFunction(List(typ, sum_type))
+	              // The type of the constructors need to be polymorphic
+	              // in case of parametric sum types
+	              ntenv = ntenv.withTCons(cons, sum_type)
+	              			   .withVarToMold(cons, fntype)
+	            }
+	          }
+	          (TType(sum_type), ntenv)
+	        }
+	        case None => throw new Exception("Can't have a sum type decl outside of a type def")
+	      }
+	    }
+	      
+	    case SimpleMatchExpr(v) => {
+	      val ntenv = type_env.withVarToPoly(v)
+	      (TValUnit, type_env.match_type match {
+	        case Some(t) => ntenv.unifyVar(v, t)
+	        case None => ntenv
+	      })
+	    }
 	    
+	    case TupleMatchExpr(vars) => {
+          val polys = vars.map(_ => new TypePoly)
+          val ttype = new ProductType(polys)
+          val ntenv = (vars zip polys).foldLeft(type_env)((tenv, v) => v match {
+            case (v, t) => v.type_infer(tenv.withMatchType(t))._2
+          })
+	      (TValUnit, type_env.match_type match {
+	        case Some(match_type) => ntenv.unifyTypes(ttype, match_type)
+	        case None => ntenv
+	      })
+	    }
+	    
+	    case ConsMatchExpr(cons, vars) => {
+	      val sum_type = type_env.tconsmap(cons)
+	    		  				 .getFresh(new HashMap[Type, Type])._1
+	      val cons_type = sum_type.ts(cons)
+	      val ntenv = if (vars.length > 1) {
+	        cons_type match {
+	          case ProductType(types) => (vars zip types).foldLeft(type_env)((tenv, v) => 
+	            v match { case (v, t) => v.type_infer(tenv.withMatchType(t))._2 }
+	          )
+	          case _ => throw new Exception("Bad mapping")
+	        }
+	      } else {
+	        val var1 = vars(0)
+	        var1.type_infer(type_env.withMatchType(cons_type))._2
+	      }
+	      val match_type = type_env.match_type.get
+	      (TValUnit, ntenv.unifyTypes(sum_type, match_type))
+	    }
+	    
+	    case MatchClause(match_expr, expr) => {
+	      val (_, ntenv) = match_expr.type_infer(type_env)
+	      val (texpr, ntenv2) = expr.type_infer(ntenv)
+	      (TMatchClause(texpr.typ, match_expr, texpr), ntenv2)
+	    }
+	    
+	    case MatchExpr(to_match, match_clauses) => {
+	      val (tto_match, ntenv) = to_match.type_infer(type_env)
+	      var tenv = ntenv
+	      val ret_type = new TypePoly
+	      val tmatch_clauses = match_clauses.map(x => {
+	        val (tmatch_clause, ntenv) = x.type_infer(tenv.withMatchType(tto_match.typ))
+	        tenv = ntenv.unifyTypes(tmatch_clause.typ, ret_type)
+	        tmatch_clause.asInstanceOf[TMatchClause]
+	      })
+	      (TMatchExpr(ret_type, tto_match, tmatch_clauses), tenv)
+	    }
       }
 	}
   }

@@ -7,11 +7,37 @@ sealed trait AbstractType {
   def get() : Type
 }
 
+trait NamedType {
+  
+}
+
 class TypeMold(t: Type) extends AbstractType {
   override def get() = {
     val (nt, _) = t.getFresh(new HashMap[Type, Type]())
     nt
   }
+  
+  override def toString() = t.toString()
+}
+
+class ParametricType(t: Type, polytypes : List[Type]) extends AbstractType {
+  
+  def instanciate(ts : List[Type]) : Type = {
+    if (ts.length != polytypes.length) 
+      throw new Exception("Incorrect number of types for parametric type instanciation")
+    val hh = polytypes.zip(ts).foldLeft(new HashMap[Type, Type])((h, tpair) => tpair match {
+      case (t1, t2) => h + (t1 -> t2)
+    })
+    t.getFresh(hh)._1
+  }
+  
+  override def get() = {
+    val (nt, _) = t.getFresh(new HashMap[Type, Type]())
+    nt
+  }
+  
+  override def toString() = t.toString
+    
 }
 
 /* ==================================================
@@ -109,7 +135,7 @@ case class ProductType(ts : List[Type]) extends Type {
   }
 }
 
-case class SumType(name: String, ts : HashMap[String, Type]) extends Type {
+case class SumType(name : String, ts : Map[String, Type]) extends Type {
   
   override def concretize(type_env : TypeEnv) : SumType = 
     new SumType(name, ts.map { case (s, t) => (s, t.concretize(type_env))})
@@ -126,4 +152,5 @@ case class SumType(name: String, ts : HashMap[String, Type]) extends Type {
   }
   
   override def toString() = name
+    //(ts map { case (cons, typ) => cons + " of " + typ }) mkString " | "
 }

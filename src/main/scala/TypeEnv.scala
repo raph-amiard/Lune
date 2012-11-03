@@ -10,7 +10,7 @@ object TypeEnv {
   type VarMap = Map[String, AbstractType]
   type TypeMap = HashMap[Type, Type]
   type AliasMap = HashMap[String, AbstractType]
-  type TypeConsMap = HashMap[String, Type]
+  type TypeConsMap = HashMap[String, SumType]
   
   val default_varmap : VarMap = Map(
     "+" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
@@ -21,19 +21,35 @@ object TypeEnv {
   
 }
 
-class TypeEnv(varmap : TypeEnv.VarMap, tmap : TypeEnv.TypeMap, amap : TypeEnv.AliasMap, tconsmap : TypeEnv.TypeConsMap) {
+case class TypeEnv(varmap : TypeEnv.VarMap, 
+			       tmap : TypeEnv.TypeMap, 
+			       amap : TypeEnv.AliasMap, 
+			       tconsmap : TypeEnv.TypeConsMap,
+			       ctypename : Option[String],
+			       match_type : Option[Type]) {
   
-  def this() = this(TypeEnv.default_varmap, new TypeEnv.TypeMap, new TypeEnv.AliasMap, new TypeEnv.TypeConsMap)
+  def this() = this(TypeEnv.default_varmap, new TypeEnv.TypeMap, new TypeEnv.AliasMap, new TypeEnv.TypeConsMap, None, None)
   
   def copyWith(varmap : TypeEnv.VarMap = varmap,
 		  	   tmap : TypeEnv.TypeMap = tmap,
 		  	   amap : TypeEnv.AliasMap = amap,
-		  	   tconsmap : TypeEnv.TypeConsMap = tconsmap) = 
-    new TypeEnv(varmap, tmap, amap, tconsmap)
+		  	   tconsmap : TypeEnv.TypeConsMap = tconsmap,
+		  	   ctypename : Option[String] = ctypename,
+		  	   match_type : Option[Type] = match_type) = 
+    new TypeEnv(varmap, tmap, amap, tconsmap, ctypename, match_type)
+  
+  def withMatchType(t : Type) = copyWith(match_type = Option(t))
+  
+  def withTypeName(name : String) = copyWith(ctypename = Option(name))
+  
+  def withTCons(s : String, typ : SumType) = 
+    copyWith(tconsmap = tconsmap + (s -> typ))
   
   def withAliasToMold(name : String, t : Type) = copyWith(amap = amap + (name -> new TypeMold(t)))
   def withAliasToPoly(name : String) = copyWith(amap = amap + (name -> new TypePoly))
+  def withAlias(name : String, t : AbstractType) = copyWith(amap = amap + (name -> t))
   def getAlias(name : String) = amap(name).get()
+  def getAliasRaw(name : String) = amap(name)
   
   def getVarType(binding : String) = varmap(binding).get()
 
@@ -94,6 +110,7 @@ class TypeEnv(varmap : TypeEnv.VarMap, tmap : TypeEnv.TypeMap, amap : TypeEnv.Al
         case TypePoly(id) => chain_unify(t2, t1)
         case TypeFunction(_) => throw new Exception("Can't unify Prim type and function type")
         case ProductType(_) => throw new Exception("Can't unify Prim type and tuple type")
+        case SumType(_, _) => throw new Exception("Can't unify Prim type and sum type")
       }
       
       case TypePoly(_) => chain_unify(t1, t2)
@@ -110,7 +127,6 @@ class TypeEnv(varmap : TypeEnv.VarMap, tmap : TypeEnv.TypeMap, amap : TypeEnv.Al
         case _ => throw new Exception("Incompatible types")
       }
         
-      
       case tf1 : TypeFunction => t2 match {
         case ProductType(_) => throw new Exception("Can't unify function type and tuple")
         case TypePoly(_) => chain_unify(t2, t1)
@@ -120,6 +136,18 @@ class TypeEnv(varmap : TypeEnv.VarMap, tmap : TypeEnv.TypeMap, amap : TypeEnv.Al
           val (t2, tail2)  = tf2.curry
           this.unifyTypes(t1, t2).unifyTypes(tail1, tail2)
         }
+        case _ => throw new Exception("Incompatible types")
+      }
+      
+      case SumType(name, ts) => t2 match {
+        case TypePoly(_) => chain_unify(t2, t1)
+        case SumType(name2, ts2) =>
+          if (name == name2)
+            (ts.values zip ts2.values).foldLeft(this)((tenv, ts) => ts match {
+              case (tt1, tt2) => tenv.unifyTypes(tt1, tt2)
+            })
+          else throw new Exception("Incompatible sum types")
+        case _ => throw new Exception("Incompatible types")
       }
       
     }

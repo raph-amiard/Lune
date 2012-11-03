@@ -6,11 +6,29 @@ class Arg
 case class SimpleArg(str : String) extends Arg
 case class TupleMatch(args: List[Arg]) extends Arg
 
+class MatchBranchExpr extends Expr
+case class MatchExpr(to_match : Expr, match_clauses : List[MatchClause]) extends Expr
+case class MatchClause(match_expr : MatchBranchExpr, expr : Expr) extends Expr
+
+case class ConsMatchExpr(cons : String, vars : List[MatchBranchExpr]) extends MatchBranchExpr {
+  override def toString() =
+    cons + "(" + (vars mkString ", ") + ")"
+}
+
+case class TupleMatchExpr(vars : List[MatchBranchExpr]) extends MatchBranchExpr {
+  override def toString() = 
+    "(" + (vars mkString ", ") + ")"
+}
+case class SimpleMatchExpr(v : String) extends MatchBranchExpr {
+  override def toString() = v
+}
+
 case class ValInt(v: Int) extends Expr
 case class ValString(v: String) extends Expr
 case class ValBool(v: Boolean) extends Expr
 case class ValDouble(v: Double) extends Expr
 case object ValUnit extends Expr
+
 case class VarRef(id: String) extends Expr
 case class FunCall(fun: Expr, args: List[Expr]) extends Expr
 case class FunDef(args: List[Arg], body: Expr) extends Expr
@@ -23,7 +41,7 @@ case class TypeDef(name: String, ptype_bindings: List[String], t: Expr) extends 
 case class NamedTypeExpr(n : String) extends Expr
 case class ParametricTypeInst(tn : String, ts : List[Expr]) extends Expr
 case class ProductTypeExpr(ts : List[Expr]) extends Expr
-case class UnionTypeExpr(ts : Map[String, Expr]) extends Expr
+case class SumTypeExpr(ts : List[(String, Expr)]) extends Expr
 
 // Expression type definition
 class Expr 

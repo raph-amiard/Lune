@@ -39,6 +39,19 @@ object LuneParser extends RegexParsers {
       case None => Def(id, e1)
     }
   }
+  
+  def match_clause_cons = T_ID ~ opt("(" ~> rep1sep(match_clause_expr, ",") <~ ")") ^^ {
+    case id ~ Some(matches) => ConsMatchExpr(id, matches)
+    case id ~ None => SimpleMatchExpr(id)
+  }
+  def match_clause_tuple = "(" ~> rep1sep(match_clause_expr, ",") <~ ")" ^^ (TupleMatchExpr(_))
+  def match_clause_expr : Parser[MatchBranchExpr] = (match_clause_tuple | match_clause_cons)
+  def match_expr_branch = (("|" ~> match_clause_expr) <~ "->") ~! expr ^^ {
+    case mce ~ expr => MatchClause(mce, expr)
+  }
+  def match_expr = ("match" ~> p_expr <~ "with") ~! rep1(match_expr_branch) ^^ {
+    case e ~ branches => MatchExpr(e, branches)
+  }
 
   def lambda : Parser[Expr] = (("fun" ~> fundeflist) <~ "->") ~ expr ^^ {
     case args ~ e1 => FunDef(args, e1)
@@ -48,34 +61,35 @@ object LuneParser extends RegexParsers {
     case cond ~ body ~ alt => IfExpr(cond, body, alt)
   }
   
-  def expr : Parser[Expr] = let | lambda | ifxp | app
+  def expr : Parser[Expr] = let | lambda | ifxp | match_expr | app
   def toplevel = defst | typedef | expr
 
-  def KWS = """(let|in|=|fun|->|if|then|else|def)"""
+  def KWS = """(let|in|=|fun|->|if|then|else|def|\|)"""
 
   def T_NUMBER = """^[-+]?[0-9]+(\.[0-9]+)?""".r  
   def T_ID : Parser[String] = """[a-zA-Z\_\+\-\/\|\>\<\=\*][a-zA-Z\_\+\-\/\|\>\<\=\*0-9]*""".r ^? {
     case x if !(x.matches(KWS)) => x
   }
   
-  def TKWS = """(let|in|=|fun|->|if|then|else|def|\*)"""
+  def TKWS = """(let|in|=|fun|->|if|then|else|def|\*|\|)"""
   def TT_ID : Parser[String] = """[a-zA-Z\_\+\-\/\|\>\<\=\*][a-zA-Z\_\+\-\/\|\>\<\=\*0-9]*""".r ^? {
     case x if !(x.matches(TKWS)) => x
   }
   
-  def named_type = (TT_ID ~! (type_expr*)) ^^ {
+  def basic_named_type = TT_ID ^^ (NamedTypeExpr(_))
+  def named_type_param = basic_named_type | ("(" ~> type_expr <~ ")")
+  def named_type = (TT_ID ~! (named_type_param*)) ^^ {
     case id ~ texprs => if (texprs.isEmpty) NamedTypeExpr(id)
     					else ParametricTypeInst(id, texprs)
   }
-    
   def paren_type_expr : Parser[Expr] = named_type | ("(" ~> type_expr <~ ")")
   def type_expr : Parser [Expr] = rep1sep(paren_type_expr, "*") ^^ (x => if (x.length == 1) x(0) else ProductTypeExpr(x))
-    
-  def sum_type_branch = ("|" ~> TT_ID <~ "of") ~ type_expr
-  
-  def typedef = ("type" ~> (TT_ID+) <~ "=") ~! type_expr ^^ {
+  def sum_type_branch = ("|" ~> TT_ID <~ "of") ~ type_expr ^^ { case id ~ texpr => (id, texpr) }
+  def sum_type = rep1(sum_type_branch) ^^ (SumTypeExpr(_))
+  def typedef = ("type" ~> (TT_ID+) <~ "=") ~! (sum_type | type_expr) ^^ {
     case (id :: ptypes) ~ texpr => TypeDef(id, ptypes, texpr)
   }
+  
   
 
   def apply(input: String): Expr = parseAll(toplevel, input) match {

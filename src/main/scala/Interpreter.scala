@@ -6,6 +6,9 @@ object Interpreter {
   
   implicit def evalObject(e : TypedExpr) = new EvalObject(e)
   
+  def make_constructor(name : String) =
+    (lv : List[Value]) => new ConstructorValue(name, lv(0))
+  
   class Environnment (h : Map[String, Value], parent : Option[Environnment]) {
     
     def get(str : String) : Value = 
@@ -25,6 +28,8 @@ object Interpreter {
     def withBindings(vars : List[String], vals : List[Value]) : Environnment = 
       new Environnment(Map() ++= (vars zip vals).toMap, Option(this))
     
+    def addConstructors(te : TypeEnv) = 
+      te.tconsmap.keys foreach (x => h += (x->new PrimFunc(1, make_constructor(x))))
   }
   
   type GNumOp = ((Int, Int) => Int,
@@ -55,6 +60,9 @@ object Interpreter {
   case class BoolValue(v: Boolean) extends Value(v)
   case class TupleValue(v: List[Value]) extends Value(v) {
     override def toString() = "(" + (v mkString ", ") + ")"
+  }
+  case class ConstructorValue(cons : String, v : Value) extends Value {
+    override def toString() = cons + "(" + v + ")"
   }
   case class FunValue() extends Value
   
@@ -127,8 +135,8 @@ object Interpreter {
     ("==" -> new PrimFunc(2, (lv) => new BoolValue(lv(0) == lv(1))))
   ), None)
   
+  var match_val : Option[Value] = None
   class EvalObject(e: TypedExpr) {
-    
     def eval(env : Environnment) : Value = {
       e match {
         case TValInt(v) => IntValue(v)
@@ -158,6 +166,49 @@ object Interpreter {
         case TTuple(_, exprs) => {
           val evexprs = exprs.map(_.eval(env))
           TupleValue(evexprs)
+        }
+        
+        case TMatchExpr(_, to_match, match_clauses) => {
+          val evexpr = to_match.eval(env)
+          def matches(m : MatchBranchExpr, v : Value) : Boolean = m match {
+            case ConsMatchExpr(cons, vars) => v match {
+              case ConstructorValue(cons2, vv) => {
+                val subexpr = if (vars.length > 1) TupleMatchExpr(vars) else vars(0)
+                (cons == cons2) && matches(subexpr, vv)
+              }
+              case _ => false
+            }
+            case TupleMatchExpr(vars) => v match {
+              case TupleValue(lv) => (vars zip lv).foldLeft(true)((acc, tup) => tup match {
+                case (vr, vl) => acc && matches(vr, vl)
+              })
+              case _ => false
+            }
+            case SimpleMatchExpr(s) => true
+          }
+          val clause = match_clauses.dropWhile(x => !matches(x.match_expr, evexpr)).head
+          match_val = Some(evexpr)
+          clause.eval(env)
+        }
+        
+        case TMatchClause(_, match_expr, expr) => {
+          val new_env = env.fresh()
+          def bind(m : MatchBranchExpr, v : Value) : Unit = m match {
+            case ConsMatchExpr(cons, vars) => v match {
+              case ConstructorValue(cons2, vv) => {
+                val subexpr = if (vars.length > 1) TupleMatchExpr(vars) else vars(0)
+                bind(subexpr, vv)
+              }
+            }
+            case TupleMatchExpr(vars) => v match {
+              case TupleValue(lv) => (vars zip lv) foreach {
+                case (vr, vl) => bind(vr, vl)
+              } 
+            }
+            case SimpleMatchExpr(s) => new_env.addBinding(s, v)
+          }
+          bind(match_expr, match_val.get)
+          expr.eval(new_env)
         }
       }
     }

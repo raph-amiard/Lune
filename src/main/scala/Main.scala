@@ -31,17 +31,24 @@ object Main extends App {
     System.out.flush()
     val input = readExpr()
     try {
-      val (texpr, ntenv) = LuneParser(input).typecheck(repl_tenv)
+      val pexpr = LuneParser(input)
+      println("PARSED EXPR : " + pexpr)
+      val (texpr, ntenv) = pexpr.typecheck(repl_tenv)
       println(texpr)
       repl_tenv = ntenv
+      env.addConstructors(repl_tenv)
       try {
         val v = texpr.eval(env)
         println("= " + v.toString)
       } catch {
         case e => println("Runtime error : " + e.getMessage())
+        e.printStackTrace()
       }
     } catch {
-      case e => println("Type error : " + e.getMessage())
+      case e => {
+        println("Type error : " + e.getMessage())
+        e.printStackTrace()
+      }
     }
   }
   
