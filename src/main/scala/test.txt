@@ -1,0 +1,4 @@
+type tt = | T1 of int * int | T2 of int * int * int ;;
+def fn a = match a with 
+  | T1(b, c) -> + b c
+  | T2(b, c, d) -> + b (* c d) ;;
