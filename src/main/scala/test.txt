@@ -48,3 +48,18 @@ instance Foo (int * int)
 instance Foo tt
   with bar a = match a with | T1(a, b) -> + a b | T2(a,b,c) -> + a (+ b c)
   with bar2 a = match a with | T1(a, b) -> (b, a) | T2(a,b,c) -> (a, (+ b c)) ;;
+  
+type Expr = 
+  | Val of int
+  | Addition of Expr * Expr
+  | Substraction of Expr * Expr ;;
+
+class Evalable a
+  with eval : fun(a -> int) ;;
+
+instance Evalable Expr 
+  with eval e = match e with 
+    | Val(v) -> v
+    | Addition(v1, v2) -> + (eval v1) (eval v2)
+    | Substraction(v1, v2) -> - (eval v1) (eval v2) ;;
+  

@@ -59,23 +59,104 @@ let eval e = function
   | Substraction(v1, v2) -> (eval v1) - (eval v2)
 ~~~
 
+Ce qu'on remarque dans ce cas, c'est que dans du code structuré de cette manière, il est extremement simple pour une personne qui utilise le code sans le posséder (c'est a dire sans pouvoir le modifier) de rajouter des nouveaux comportements concernant le type défini :
+
+~~~ocaml
+let as_string e = function
+  | Val(v) -> string_of_int v
+  | Addition(v1, v2) -> (as_string v1) ^ " + " ^ (as_string v2)
+  | Substraction(v1, v2) -> (as_string v1) ^ " - " ^ (as_string v2)
+~~~
+
+Il est en revanche impossible d'étendre l'ensemble de types représenté par le type Expr si l'on n'est pas le propriétaire direct du code existant.
+
+Dans le paradigme objet dominant, le problème est inversé. Rappelons le code idiomatique correspondant au code fonctionnel vu ci-dessus :
+
+~~~scala
+abstract class Expr {
+    def eval() : Int
+}
+class Addition(v1 : Int, v2 : Int) extends Expr {
+    def eval() : Int = v1 + v2
+}
+class Substraction(v1 : Int, v2 : Int) extends Expr {
+    def eval() : Int = v1 - v2
+}
+~~~
+
+Si l'on veut étendre l'ensemble des types auxquels eval peut s'appliquer, il nous suffit de définir un nouveau type.
+
+~~~scala
+class Division(v1 : Int, v2 : Int) extends Expr {
+    def eval() : Int = v1 / v2
+}
+~~~
+
+En revanche, il n'existe pas de moyen simple de rajouter le comportement "as_string" si l'on n'est pas le propriétaire du code des classes Expr, Addition, et Substraction.
+
+Les typeclasses permettent de pallier a ce problème. En effet, il est possible avec les typeclasses :
+
+- De rajouter des nouveaux comportements sur des types existants, en précisant a posteriori l'implantation correspondante
+- D'étendre les comportements a des nouveaux types, de la même manière.
+
+Pour donner un exemple, voici le cas étudié, cette fois ci dans notre mini langage, utilisant les typeclasses :
+
+~~~ocaml
+
+class Evalable a
+  with eval : fun(a -> int) ;;
+
+type Addition = Evalable * Evalable ;;
+type Substraction = Evalable * Evalable ;;
+
+instance Evalable Addition 
+  with eval (ev1, ev2) = + (eval ev1) (eval ev2) ;;
+
+instance Evalable Substraction 
+  with eval (ev1, ev2) = - (eval ev1) (eval ev2) ;;
+
+(* Dans un autre fichier *)
+type Division = Evalable * Evalable ;;
+
+instance Evalable Division 
+  with eval (ev1, ev2) = / (eval ev1) (eval ev2) ;;
+
+(* On imagine que cette classe existe déja, et fait partie du langage *)
+class Stringable a
+  with to_string : fun(a -> string)
+
+instance Stringable Addition
+  with to_string (ev1, ev2) -> concat (concat (to_string ev1) " + ") (to_string ev2)
+
+instance Stringable Substraction
+  with to_string (ev1, ev2) -> concat (concat (to_string ev1) " - ") (to_string ev2)
+
+instance Stringable Division
+  with to_string (ev1, ev2) -> concat (concat (to_string ev1) " / ") (to_string ev2)
+
+~~~
+
+On voit ici qu'on peut étendre la classe "Evalable" avec un nouveau type, "Division", et ceci en dehors de la définition originelle des types de données. Il est également possible d'étendre des types existants avec de nouveaux comportements. Le problème que nous nous posions a l'origine est résolu !
+
 ### Extension des comportements structurels au langage
+
+Un effet de bord interressant de cette abstraction est qu'il est possible d'implanter un grand nombre de comportements structurels du langage, et essentiel a son fonctionnement, en terme de typeclasses, comme par exemple, l'égalité, la conversion en chaine de caractères, etc.
+
+Ceci est courant dans les langages objets, mais assez peu répandu dans les langages fonctionnels.
 
 Presentation du langage
 -----------------------
 
+Dans cette section nous présenterons brièvement les caractéristiques de Lune, le mini langage ML implanté dans le cadre de ce projet.
+
 ### Inference de types
+
+Lune, étant un langage de la classe des ML, possède un typeur appliquant un algorithme d'inférence de type Hindley-Milner, ce qui rend la plupart des déclarations de types inutiles. Cet algorithme suit l'algorithme original dans le contexte du lambda-calcul typé. Il est cependant nécessaire de l'adapter a certaines des fonctionnalités du langage, ce qui sera décrit dans les sections suivantes.
+
 ### Types de données
 #### Tuples
 #### Types somme
 ### Filtrage par motif
 ### Fonctions d'ordre superieur
 ### TypeClasses
-
-Implantation
-------------
-
-### Typeur
-### Extension du typeur pour les types sommes récursifs
-### Extension du typeur pour les TypeClasses
 
