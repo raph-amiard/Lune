@@ -1,13 +1,20 @@
 package main.scala
 
+import scala.collection.mutable.HashMap
+
 object Interpreter {
   import scala.collection.mutable.Map
   import scala.math.Numeric
   
+  
+  /* TYPECLASSES STUFF */
+  // classes["foo"]["bar"][typ]
+  
+  var classes = new HashMap[String, HashMap[String, HashMap[Type, FuncValue]]]
+  
   implicit def evalObject(e : TypedExpr) = new EvalObject(e)
   
-  def make_constructor(name : String) =
-    (lv : List[Value]) => new ConstructorValue(name, lv(0))
+  def make_constructor(t : Type, name : String) = (lv : List[Value]) => new ConstructorValue(t, name, lv(0))
   
   class Environnment (h : Map[String, Value], parent : Option[Environnment]) {
     
@@ -29,13 +36,13 @@ object Interpreter {
       new Environnment(Map() ++= (vars zip vals).toMap, Option(this))
     
     def addConstructors(te : TypeEnv) = 
-      te.tconsmap.keys foreach (x => h += (x->new PrimFunc(1, make_constructor(x))))
+      te.tconsmap foreach { case (x, t) => h += (x->new PrimFunc(1, make_constructor(t, x), te.varmap(x).get))}
   }
   
   type GNumOp = ((Int, Int) => Int,
 		  		 (Double, Double) => Double)
 		  		 
-  abstract class Value(v : Any) {
+  abstract class Value(v : Any, val t : Type) {
     override def toString() = v.toString
     
     def numop(g : GNumOp)(other : Value) : Value = {
@@ -51,22 +58,21 @@ object Interpreter {
     
   }
   
-  case object UnitValue extends Value(null) {
+  case object UnitValue extends Value(null, TypeUnit) {
     override def toString() = "()"
   }
-  case class IntValue(v : Int) extends Value(v)
-  case class DoubleValue(v: Double) extends Value(v)
-  case class StringValue(v: String) extends Value(v)
-  case class BoolValue(v: Boolean) extends Value(v)
-  case class TupleValue(v: List[Value]) extends Value(v) {
+  case class IntValue(v : Int) extends Value(v, TypeInt)
+  case class DoubleValue(v: Double) extends Value(v, TypeDouble)
+  case class StringValue(v: String) extends Value(v, TypeString)
+  case class BoolValue(v: Boolean) extends Value(v, TypeBool)
+  case class TupleValue(_type : Type, v: List[Value]) extends Value(v, _type) {
     override def toString() = "(" + (v mkString ", ") + ")"
   }
-  case class ConstructorValue(cons : String, v : Value) extends Value {
+  case class ConstructorValue(_type : Type, cons : String, v : Value) extends Value(v, _type) {
     override def toString() = cons + "(" + v + ")"
   }
-  case class FunValue() extends Value
   
-  abstract class FuncValue(args_vals : List[Value]) extends Value {
+  abstract class FuncValue(v : Any, _type : Type, args_vals : List[Value]) extends Value(v, _type) {
     
     def run(l : List[Value]) : Value
     def withArgs(args : List[Value]) : FuncValue
@@ -85,7 +91,7 @@ object Interpreter {
     
   }
   
-  case class NativeFunc(params: List[Arg], e : TypedExpr, env: Environnment, _type : Type, args_vals : List[Value]) extends FuncValue(args_vals) {
+  case class NativeFunc(params: List[Arg], e : TypedExpr, env: Environnment, _type : Type, args_vals : List[Value]) extends FuncValue(e, _type, args_vals) {
     
     def this(params : List[Arg], e : TypedExpr, env : Environnment, _type : Type) = 
       this(params, e, env, _type, List())
@@ -96,11 +102,12 @@ object Interpreter {
     def arity = params.length
     
     def run(l : List[Value]) = {
+      println("IN RUN OF NATIVEFUNC")
       val new_env = env.fresh()
       
       def bind_val(av : (Arg, Value)) : Unit = av match {
         case (SimpleArg(s), v) => new_env.addBinding(s, v)
-        case (TupleMatch(as), TupleValue(vs)) => (as zip vs) foreach bind_val
+        case (TupleMatch(as), TupleValue(_, vs)) => (as zip vs) foreach bind_val
         case _ => throw new Exception("WTF")
 	  }
       
@@ -113,14 +120,14 @@ object Interpreter {
     
   }
   
-  case class PrimFunc(nb_p: Int, func: (List[Value]) => Value, args_vals: List[Value]) extends FuncValue(args_vals) {
+  case class PrimFunc(nb_p: Int, func: (List[Value]) => Value, _type : Type, args_vals: List[Value]) extends FuncValue(func, _type, args_vals) {
     
-    def this(nb_p : Int, func : (List[Value]) => Value) = 
-      this(nb_p, func, List())
+    def this(nb_p : Int, func : (List[Value]) => Value, _type : Type) = 
+      this(nb_p, func, _type, List())
      
       
     def withArgs(args : List[Value]) : PrimFunc = 
-      new PrimFunc(nb_p, func, args)
+      new PrimFunc(nb_p, func, _type, args)
     
     def arity = nb_p
     def run(l : List[Value]) = func(l)
@@ -128,11 +135,11 @@ object Interpreter {
   }
   
   val prims = new Environnment(Map(
-    ("+" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x + y), ((x, y) => x + y))(lv(1)))),
-    ("-" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x - y), ((x, y) => x - y))(lv(1)))),
-    ("*" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x * y), ((x, y) => x * y))(lv(1)))),
-    ("/" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x / y), ((x, y) => x / y))(lv(1)))),
-    ("==" -> new PrimFunc(2, (lv) => new BoolValue(lv(0) == lv(1))))
+    ("+" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x + y), ((x, y) => x + y))(lv(1)), TypeEnv.default_varmap("+").get)),
+    ("-" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x - y), ((x, y) => x - y))(lv(1)), TypeEnv.default_varmap("-").get)),
+    ("*" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x * y), ((x, y) => x * y))(lv(1)), TypeEnv.default_varmap("*").get)),
+    ("/" -> new PrimFunc(2, (lv) => lv(0).numop(((x, y) => x / y), ((x, y) => x / y))(lv(1)), TypeEnv.default_varmap("/").get)),
+    ("==" -> new PrimFunc(2, (lv) => new BoolValue(lv(0) == lv(1)), TypeEnv.default_varmap("==").get))
   ), None)
   
   var match_val : Option[Value] = None
@@ -163,23 +170,23 @@ object Interpreter {
           v
         }
         
-        case TTuple(_, exprs) => {
+        case TTuple(_type, exprs) => {
           val evexprs = exprs.map(_.eval(env))
-          TupleValue(evexprs)
+          TupleValue(_type, evexprs)
         }
         
-        case TMatchExpr(_, to_match, match_clauses) => {
+        case TMatchExpr(_type, to_match, match_clauses) => {
           val evexpr = to_match.eval(env)
           def matches(m : MatchBranchExpr, v : Value) : Boolean = m match {
             case ConsMatchExpr(cons, vars) => v match {
-              case ConstructorValue(cons2, vv) => {
+              case ConstructorValue(_, cons2, vv) => {
                 val subexpr = if (vars.length > 1) TupleMatchExpr(vars) else vars(0)
                 (cons == cons2) && matches(subexpr, vv)
               }
               case _ => false
             }
             case TupleMatchExpr(vars) => v match {
-              case TupleValue(lv) => (vars zip lv).foldLeft(true)((acc, tup) => tup match {
+              case TupleValue(_, lv) => (vars zip lv).foldLeft(true)((acc, tup) => tup match {
                 case (vr, vl) => acc && matches(vr, vl)
               })
               case _ => false
@@ -195,13 +202,13 @@ object Interpreter {
           val new_env = env.fresh()
           def bind(m : MatchBranchExpr, v : Value) : Unit = m match {
             case ConsMatchExpr(cons, vars) => v match {
-              case ConstructorValue(cons2, vv) => {
+              case ConstructorValue(_, cons2, vv) => {
                 val subexpr = if (vars.length > 1) TupleMatchExpr(vars) else vars(0)
                 bind(subexpr, vv)
               }
             }
             case TupleMatchExpr(vars) => v match {
-              case TupleValue(lv) => (vars zip lv) foreach {
+              case TupleValue(_, lv) => (vars zip lv) foreach {
                 case (vr, vl) => bind(vr, vl)
               } 
             }
@@ -209,6 +216,31 @@ object Interpreter {
           }
           bind(match_expr, match_val.get)
           expr.eval(new_env)
+        }
+        
+        case TTypeClassDef(name, fun_names) => {
+          val classhashmap = new HashMap[String, HashMap[Type, FuncValue]]
+          classes(name) = classhashmap
+          fun_names foreach {
+            case (funcname, t) => {
+              val classfuncs = new HashMap[Type, FuncValue]
+              classhashmap(funcname) = classfuncs
+              env.addBinding(funcname, new PrimFunc(t.ts.length-1, (l => classfuncs(l(0).t).run(l)), t))
+            }
+          }
+          UnitValue
+        }
+        
+        case TInstanceDef(typ, classname, funs) => {
+          val classhashmap = classes(classname)
+          funs foreach {
+            case TInstanceFunExpr(funtyp, funcname, fun) => {
+              val funcval = fun.eval(env).asInstanceOf[FuncValue]
+              classhashmap(funcname)(typ) = funcval
+            }
+          }
+          println("CLASSHAMAP " + classhashmap)
+          UnitValue
         }
       }
     }

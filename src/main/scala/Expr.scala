@@ -41,7 +41,14 @@ case class TypeDef(name: String, ptype_bindings: List[String], t: Expr) extends 
 case class NamedTypeExpr(n : String) extends Expr
 case class ParametricTypeInst(tn : String, ts : List[Expr]) extends Expr
 case class ProductTypeExpr(ts : List[Expr]) extends Expr
+case class FunctionTypeExpr(ts : List[Expr]) extends Expr
 case class SumTypeExpr(ts : List[(String, Expr)]) extends Expr
+
+case class TypeClassFunExpr(name : String, t : FunctionTypeExpr) extends Expr
+case class TypeClassDef(name : String, type_binding : String, funs : List[TypeClassFunExpr]) extends Expr
+
+case class InstanceDef(classname : String, type_expr : Expr, funs : List[InstanceFunExpr]) extends Expr
+case class InstanceFunExpr(name : String, fun : FunDef) extends Expr
 
 // Expression type definition
 class Expr 

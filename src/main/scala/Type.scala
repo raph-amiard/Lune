@@ -2,6 +2,8 @@ package main.scala
 
 import scala.collection.immutable.HashMap
 import scala.collection.immutable.Map
+import scala.collection.immutable.HashSet
+import scala.collection.immutable.Set
 
 sealed trait AbstractType {
   def get() : Type
@@ -71,14 +73,15 @@ object TypePoly {
   def nextPoly() = { nPoly = nPoly + 1; nPoly }
 }
 
-case class TypePoly(id: Int) extends Type { 
-  def this() = this(TypePoly.nextPoly())
+case class TypePoly(id: Int, classes : Set[String]) extends Type { 
+  def this() = this(TypePoly.nextPoly(), new HashSet[String])
+  def this(classes : Set[String]) = this(TypePoly.nextPoly(), classes)
   override def concretize(type_env : TypeEnv) : Type = type_env.bestType(this)
-  override def toString() = "P" + id.toString
+  override def toString() = "P" + id.toString + "(" + (classes mkString ",") + ")"
   override def getFresh(ctx : Ctx) = 
     if (ctx.contains(this)) (ctx(this), ctx)
     else {
-      val ptype = new TypePoly()
+      val ptype = new TypePoly(classes)
       (ptype, ctx + ((this, ptype)))
     }
 }
@@ -100,7 +103,7 @@ case class TypeFunction(ts: List[Type]) extends Type {
   }
   
   override def toString() = {
-    ts.mkString(" -> ")
+    "FUNT" + "(" + ts.mkString(" -> ") + ")"
   }
   
   override def getFresh(ctx : Ctx) = {
@@ -135,22 +138,49 @@ case class ProductType(ts : List[Type]) extends Type {
   }
 }
 
-case class SumType(name : String, ts : Map[String, Type]) extends Type {
+case class SumType(name : String, var ts : Map[String, Type]) extends Type {
   
   override def concretize(type_env : TypeEnv) : SumType = 
-    new SumType(name, ts.map { case (s, t) => (s, t.concretize(type_env))})
-  
-  override def getFresh(ctx : Ctx) = {
-    var cctx = ctx
-    (new SumType(name, ts map {
-      case (s, t) => {
-        val (ntype, nctx) = t getFresh cctx
-        cctx = nctx
-        (s, ntype)
+    type_env.current_sum_type match {
+      case Some(st) => st
+      case None => {
+        val st = new SumType(name, ts)
+        val nte = type_env.withCurrentSumType(st)
+        st.ts = ts.map { case (s, t) => (s, t.concretize(nte))}
+        st
       }
-    }), cctx)
+    }
+  
+  override def getFresh(ctx : Ctx) : (SumType, Ctx) = {
+    if (ctx.contains(this)) (ctx(this).asInstanceOf[SumType], ctx)
+    else {
+      val st = new SumType(name, ts)
+      var cctx = ctx + (this -> st)
+      st.ts = ts map {
+        case (s, t) => {
+          val (ntype, nctx) = t getFresh cctx
+          cctx = nctx
+          (s, ntype)
+        }
+      }
+      (st , cctx)
+    }
   }
+  
+  override def hashCode() : Int = name.hashCode()
   
   override def toString() = name
     //(ts map { case (cons, typ) => cons + " of " + typ }) mkString " | "
+    
+  def updateRecursive(type_env : TypeEnv) = {
+    val st = new SumType(name, new HashMap[String, Type])
+    val nte = type_env.withCurrentSumType(st)
+    st.ts = ts.map { case (s, t) => (s, t.concretize(nte))}
+    st
+  }
+  
+}
+
+object PlaceHolderSumType extends SumType("", new HashMap[String, Type]) {
+  override def concretize(type_env : TypeEnv) : SumType = type_env.current_sum_type.get
 }

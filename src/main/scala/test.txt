@@ -2,3 +2,28 @@ type tt = | T1 of int * int | T2 of int * int * int ;;
 def fn a = match a with 
   | T1(b, c) -> + b c
   | T2(b, c, d) -> + b (* c d) ;;
+  
+  
+type intlist = | Node of int * intlist | Tail of int ;;
+
+def sumlist a = match a with
+  | Node(i, tail) -> + i (sumlist tail)
+  | Tail(i) -> i ;;
+  
+def il = Node(1, Node(2, Node(3, Node(4, Tail(5))))) ;;
+
+class Foo a 
+  with bar : fun(a -> int)
+  with bar2 : fun(a -> (int * int)) ;;
+
+instance Foo int
+  with bar a = + a 2
+  with bar2 a = (a, a) ;;
+  
+instance Foo (int * int)
+  with bar (a, b) = + a b
+  with bar2 (a, b) = (a, b) ;;
+  
+instance Foo tt
+  with bar a = match a with | T1(a, b) -> + a b | T2(a,b,c) -> + a (+ b c)
+  with bar2 a = match a with | T1(a, b) -> (b, a) | T2(a,b,c) -> (a, (+ b c)) ;;

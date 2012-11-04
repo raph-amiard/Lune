@@ -97,3 +97,8 @@ case class TMatchClause(_type : Type, match_expr : MatchBranchExpr, expr : Typed
   override def toString() =
     match_expr + " -> " + expr
 }
+
+case class TInstanceDef(_type : Type, classname : String, funs : List[TInstanceFunExpr]) extends TypedExpr(_type)
+case class TInstanceFunExpr(_type : Type, name : String, fun : TFunDef) extends TypedExpr(_type)
+
+case class TTypeClassDef(name : String, funs : Map[String, TypeFunction]) extends TypedExpr(TypeUnit)

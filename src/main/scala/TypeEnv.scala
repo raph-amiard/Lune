@@ -2,6 +2,19 @@ package main.scala
 
 import scala.collection.immutable.HashMap
 import scala.collection.immutable.Map
+import scala.collection.immutable.HashSet
+
+class TypeClass(val name : String, val ptype : TypePoly, val funcs : Map[String, TypeFunction]) {
+  def getFuncs() = {
+    val (fresh_ptype, ctx) = ptype.getFresh(new HashMap[Type, Type])
+    (funcs map { case (n, tf) => (n, tf.getFresh(ctx)._1) }).toMap
+  }
+  
+  def getFuncsWithClassConstraint() = {
+    val ctx : HashMap[Type, Type] = HashMap(ptype -> new TypePoly(Set(name)))
+    (funcs map { case (n, tf) => (n, tf.getFresh(ctx)._1) }).toMap
+  }
+}
 
 object TypeEnv {
   
@@ -11,32 +24,56 @@ object TypeEnv {
   type TypeMap = HashMap[Type, Type]
   type AliasMap = HashMap[String, AbstractType]
   type TypeConsMap = HashMap[String, SumType]
+  type ConstraintsMap = HashMap[Type, Set[String]]
+  type ClassImplMap = HashMap[Type, Set[String]]
+  type TypeClassesMap = HashMap[String, TypeClass]
   
   val default_varmap : VarMap = Map(
     "+" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
     "*" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
     "-" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
+    "/" -> TypeFunction(List(TypeInt, TypeInt, TypeInt)),
     "=="-> new TypeMold(TypeFunction(List(tpoly, tpoly, TypeBool)))
   )
   
 }
 
-case class TypeEnv(varmap : TypeEnv.VarMap, 
-			       tmap : TypeEnv.TypeMap, 
-			       amap : TypeEnv.AliasMap, 
+case class TypeEnv(varmap : TypeEnv.VarMap,
+			       tmap : TypeEnv.TypeMap,
+			       amap : TypeEnv.AliasMap,
 			       tconsmap : TypeEnv.TypeConsMap,
 			       ctypename : Option[String],
-			       match_type : Option[Type]) {
+			       match_type : Option[Type],
+			       current_sum_type : Option[SumType],
+			       constraints_map : TypeEnv.ConstraintsMap,
+			       class_impl_map : TypeEnv.ClassImplMap,
+			       typeclasses_map : TypeEnv.TypeClassesMap) {
   
-  def this() = this(TypeEnv.default_varmap, new TypeEnv.TypeMap, new TypeEnv.AliasMap, new TypeEnv.TypeConsMap, None, None)
+  def this() = this(TypeEnv.default_varmap, 
+		  			new TypeEnv.TypeMap, 
+		  			new TypeEnv.AliasMap, 
+		  			new TypeEnv.TypeConsMap, 
+		  			None, None, None, 
+		  			new HashMap[Type, HashSet[String]],
+		  			new HashMap[Type, HashSet[String]],
+		  			new HashMap[String, TypeClass])
   
   def copyWith(varmap : TypeEnv.VarMap = varmap,
 		  	   tmap : TypeEnv.TypeMap = tmap,
 		  	   amap : TypeEnv.AliasMap = amap,
 		  	   tconsmap : TypeEnv.TypeConsMap = tconsmap,
 		  	   ctypename : Option[String] = ctypename,
-		  	   match_type : Option[Type] = match_type) = 
-    new TypeEnv(varmap, tmap, amap, tconsmap, ctypename, match_type)
+		  	   match_type : Option[Type] = match_type,
+		  	   current_sum_type : Option[SumType] = current_sum_type,
+		  	   constraints_map : TypeEnv.ConstraintsMap = constraints_map,
+		  	   class_impl_map : TypeEnv.ClassImplMap = class_impl_map,
+		  	   typeclasses_map : TypeEnv.TypeClassesMap = typeclasses_map) = 
+    new TypeEnv(varmap, tmap, amap, tconsmap, ctypename, match_type, current_sum_type, constraints_map, class_impl_map, typeclasses_map)
+  
+  def withTypeClass(name : String, tc : TypeClass) = 
+    copyWith(typeclasses_map = typeclasses_map + (name -> tc))
+  
+  def withCurrentSumType(st : SumType) = copyWith(current_sum_type = Option(st))
   
   def withMatchType(t : Type) = copyWith(match_type = Option(t))
   
@@ -66,6 +103,27 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
   
   def bestType(t : Type) : Type = tmap.getOrElse(t, t)
   
+  def withClassImpl(t : Type, tclass : String) = {
+    val class_impls = class_impl_map.getOrElse(t, Set()) + tclass
+    copyWith(class_impl_map = class_impl_map + (t -> class_impls))
+  }
+  
+  def withClassConstraints(t1 : TypePoly, t2: Type) : TypeEnv = {
+    val t1_constraints = constraints_map.getOrElse(t1, t1.classes)
+    t2 match {
+      case tp2 : TypePoly => {
+	    val t2_constraints = constraints_map.getOrElse(tp2, tp2.classes)
+	    val total_constraints = t1_constraints.union(t2_constraints)
+	    copyWith(constraints_map = constraints_map + (t1 -> total_constraints) + (t2 -> total_constraints))
+      }
+      case _ => {
+        val missing_classes = t1_constraints.diff(class_impl_map.getOrElse(t2, Set()))
+        if (missing_classes.isEmpty) this
+        else throw new Exception("Non respected type classes constraints : " + missing_classes)
+      }
+    }
+  }
+  
   /* Simplify the mappings of polytypes so that
    * all type paths are of length 1
    * if you have the following mapping :
@@ -85,20 +143,20 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
     te
   }
   
-  def unifyVar(v : String, t : Type) = unifyTypes(getVarType(v), t)
+   def unifyVar(v : String, t : Type) = unifyTypes(getVarType(v), t)
   
   /* Unify types t1 and t2. It means that refering
    * to one or the other has the same meaning
    * This function handle type checking (checking that
    * t1 and t2 are indeed unifiable or not)
    */
-  def unifyTypes(t1: Type, t2: Type) : TypeEnv = {
+  def unifyTypes(t1: Type, t2: Type, cu_sum_type : Option[SumType] = None) : TypeEnv = {
     println("IN UNIFY ", t1, t2)
     
-    def chain_unify(tpoly: Type, tpoly_binding: Type) = 
-      if (tmap.contains(tpoly)) unifyTypes(tmap(tpoly), tpoly_binding)
-      else if (tmap.contains(tpoly_binding)) unifyTypes(tpoly, tmap(tpoly_binding))
-      else this.withTypeMapping(tpoly, tpoly_binding)
+    def chain_unify(tpoly: TypePoly, tpoly_binding: Type) = 
+      if (tmap.contains(tpoly)) unifyTypes(tmap(tpoly), tpoly_binding, cu_sum_type)
+      else if (tmap.contains(tpoly_binding)) unifyTypes(tpoly, tmap(tpoly_binding), cu_sum_type)
+      else this.withTypeMapping(tpoly, tpoly_binding).withClassConstraints(tpoly, tpoly_binding)
 	  
     t1 match {
       
@@ -107,21 +165,21 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
           if (t1 != t2) throw new Exception("Got type " + t2 + " where type " + t1 + " was expected")
           else this
           
-        case TypePoly(id) => chain_unify(t2, t1)
+        case tp2 : TypePoly => chain_unify(tp2, t1)
         case TypeFunction(_) => throw new Exception("Can't unify Prim type and function type")
         case ProductType(_) => throw new Exception("Can't unify Prim type and tuple type")
         case SumType(_, _) => throw new Exception("Can't unify Prim type and sum type")
       }
       
-      case TypePoly(_) => chain_unify(t1, t2)
+      case tp1 : TypePoly => chain_unify(tp1, t2)
       
       case ProductType(ts1) => t2 match {
-        case TypePoly(_) => chain_unify(t1, t2)
+        case tp2 : TypePoly => chain_unify(tp2, t1)
         case ProductType(ts2) => 
           if (ts1.length != ts2.length) throw new Exception("Incompatible tuple types")
           else {
             var ntm = this
-            (ts1 zip ts2).map { case (t1, t2) => ntm = ntm.unifyTypes(t1, t2) }
+            (ts1 zip ts2).map { case (t1, t2) => ntm = ntm.unifyTypes(t1, t2, cu_sum_type) }
             ntm
           }
         case _ => throw new Exception("Incompatible types")
@@ -129,23 +187,25 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
         
       case tf1 : TypeFunction => t2 match {
         case ProductType(_) => throw new Exception("Can't unify function type and tuple")
-        case TypePoly(_) => chain_unify(t2, t1)
+        case tp2 : TypePoly => chain_unify(tp2, t1)
         case TypePrim() => throw new Exception("Can't unify Prim type and function type")
         case tf2 : TypeFunction => {
           val (t1, tail1)  = tf1.curry
           val (t2, tail2)  = tf2.curry
-          this.unifyTypes(t1, t2).unifyTypes(tail1, tail2)
+          this.unifyTypes(t1, t2, cu_sum_type).unifyTypes(tail1, tail2, cu_sum_type)
         }
         case _ => throw new Exception("Incompatible types")
       }
       
       case SumType(name, ts) => t2 match {
-        case TypePoly(_) => chain_unify(t2, t1)
+        case tp2 : TypePoly => chain_unify(tp2, t1)
         case SumType(name2, ts2) =>
-          if (name == name2)
-            (ts.values zip ts2.values).foldLeft(this)((tenv, ts) => ts match {
-              case (tt1, tt2) => tenv.unifyTypes(tt1, tt2)
+          if (name == name2) cu_sum_type match {
+            case Some(st) if st.name == name2 => this
+            case _ => (ts.values zip ts2.values).foldLeft(this)((tenv, ts) => ts match {
+              case (tt1, tt2) => tenv.unifyTypes(tt1, tt2, Some(t1.asInstanceOf[SumType]))
             })
+          }
           else throw new Exception("Incompatible sum types")
         case _ => throw new Exception("Incompatible types")
       }

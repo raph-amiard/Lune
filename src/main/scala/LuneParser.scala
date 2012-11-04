@@ -62,16 +62,16 @@ object LuneParser extends RegexParsers {
   }
   
   def expr : Parser[Expr] = let | lambda | ifxp | match_expr | app
-  def toplevel = defst | typedef | expr
+  def toplevel = defst | typedef | typeclassdecl | instancedecl | expr 
 
-  def KWS = """(let|in|=|fun|->|if|then|else|def|\|)"""
+  def KWS = """(instance|class|with|let|in|=|fun|->|if|then|else|def|\|)"""
 
   def T_NUMBER = """^[-+]?[0-9]+(\.[0-9]+)?""".r  
   def T_ID : Parser[String] = """[a-zA-Z\_\+\-\/\|\>\<\=\*][a-zA-Z\_\+\-\/\|\>\<\=\*0-9]*""".r ^? {
     case x if !(x.matches(KWS)) => x
   }
   
-  def TKWS = """(let|in|=|fun|->|if|then|else|def|\*|\|)"""
+  def TKWS = """(instance|class|with|let|in|=|fun|->|if|then|else|def|\*|\||\-\>)"""
   def TT_ID : Parser[String] = """[a-zA-Z\_\+\-\/\|\>\<\=\*][a-zA-Z\_\+\-\/\|\>\<\=\*0-9]*""".r ^? {
     case x if !(x.matches(TKWS)) => x
   }
@@ -83,14 +83,29 @@ object LuneParser extends RegexParsers {
     					else ParametricTypeInst(id, texprs)
   }
   def paren_type_expr : Parser[Expr] = named_type | ("(" ~> type_expr <~ ")")
-  def type_expr : Parser [Expr] = rep1sep(paren_type_expr, "*") ^^ (x => if (x.length == 1) x(0) else ProductTypeExpr(x))
+  def tuple_type_expr : Parser [Expr] = rep1sep(paren_type_expr, "*") ^^ (x => if (x.length == 1) x(0) else ProductTypeExpr(x))
+  def type_expr = tuple_type_expr | fun_type_expr
   def sum_type_branch = ("|" ~> TT_ID <~ "of") ~ type_expr ^^ { case id ~ texpr => (id, texpr) }
   def sum_type = rep1(sum_type_branch) ^^ (SumTypeExpr(_))
+  def fun_type_expr = "fun" ~> ("(" ~> rep1sep(paren_type_expr, "->") <~ ")") ^^ (FunctionTypeExpr(_))
   def typedef = ("type" ~> (TT_ID+) <~ "=") ~! (sum_type | type_expr) ^^ {
     case (id :: ptypes) ~ texpr => TypeDef(id, ptypes, texpr)
   }
   
+  def typeclassdecl = ("class" ~> (TT_ID ~ TT_ID)) ~ rep("with" ~> typeclassfundecl) ^^ {
+    case id ~ ptype ~ fundecls => TypeClassDef(id, ptype, fundecls)
+  }
+  def typeclassfundecl = (T_ID <~ ":") ~ fun_type_expr ^^ {
+    case id ~ ftexpr => TypeClassFunExpr(id, ftexpr)
+  }
   
+  def instancedecl = ("instance" ~> (TT_ID ~ type_expr)) ~ rep1("with" ~> instancefundecl) ^^ {
+    case tclass ~ typ ~ fundecls => InstanceDef(tclass, typ, fundecls)
+  }
+  
+  def instancefundecl = ((T_ID ~ fundeflist) <~ "=") ~ expr ^^ {
+    case name ~ args ~ exp => InstanceFunExpr(name, FunDef(args, exp))
+  }
 
   def apply(input: String): Expr = parseAll(toplevel, input) match {
     case Success(result, _) => result

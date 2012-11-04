@@ -16,7 +16,7 @@ object Typing {
 
 	def type_infer(type_env : TypeEnv) : (TypedExpr, TypeEnv) = {
 	  def withTypeEnv(t: TypedExpr) = (t, type_env)
-	  def typesFromExprs(ts : List[Expr]) = ts.map(x => x.type_infer(type_env) match {
+	  def typesFromExprs(ts : List[Expr], te : TypeEnv = type_env) = ts.map(x => x.type_infer(te) match {
         case (TType(tt), _) => tt
         case _ => throw new Exception("Can not happen")
 	  })
@@ -141,26 +141,30 @@ object Typing {
 	    }
 
 	    case ProductTypeExpr(ts) => (TType(ProductType(typesFromExprs(ts))), type_env)
+	    case FunctionTypeExpr(ts) => (TType(TypeFunction(typesFromExprs(ts))), type_env)
 	    
 	    case SumTypeExpr(ts) => {
 	      type_env.ctypename match {
 	        case Some(name) => {
 	          // Get constructor names and type expressions
 	          val (conses, texprs) = ts.unzip
-	          val types = typesFromExprs(texprs.toList)
+	          val te = type_env.withAlias(name, PlaceHolderSumType)
+	          val types = typesFromExprs(texprs.toList, te = te)
 	          val m = (conses zip types).toMap
 	          val sum_type = SumType(name, m)
 	          var ntenv = type_env
-	          (conses zip types) foreach {
+	          val csum_type = sum_type.updateRecursive(ntenv)
+	          csum_type.ts foreach {
 	            case (cons, typ) => {
-	              val fntype = new TypeFunction(List(typ, sum_type))
+	              val fntype = new TypeFunction(List(typ, csum_type))
 	              // The type of the constructors need to be polymorphic
 	              // in case of parametric sum types
-	              ntenv = ntenv.withTCons(cons, sum_type)
+	              ntenv = ntenv.withTCons(cons, csum_type)
 	              			   .withVarToMold(cons, fntype)
 	            }
 	          }
-	          (TType(sum_type), ntenv)
+	          println("HERE IS THE SUM TYPE ", csum_type)
+	          (TType(csum_type), ntenv)
 	        }
 	        case None => throw new Exception("Can't have a sum type decl outside of a type def")
 	      }
@@ -221,6 +225,38 @@ object Typing {
 	        tmatch_clause.asInstanceOf[TMatchClause]
 	      })
 	      (TMatchExpr(ret_type, tto_match, tmatch_clauses), tenv)
+	    }
+	    
+	    case TypeClassDef(name, type_binding, funs) => {
+	      val tp = new TypePoly
+	      val ntenv = type_env.withAlias(type_binding, tp)
+	      val fun_types = typesFromExprs(funs.map(_.t), ntenv) map (_.asInstanceOf[TypeFunction])
+	      val names = funs.map(_.name)
+	      val mmap = names.zip(fun_types).toMap
+	      val tc = new TypeClass(name, tp, mmap)
+	      var tenv = ntenv
+	      tc.getFuncsWithClassConstraint map {
+	        case (n, ft) => tenv = tenv.withVarToMold(n, ft)
+	      }
+	      println("TENV : " + tenv)
+	      (TTypeClassDef(name, (names zip fun_types).toMap), tenv.withTypeClass(name, tc))
+	    }
+	    
+	    case InstanceDef(classname, type_expr, funs) => {
+	      val typ = typesFromExprs(List(type_expr))(0)
+	      println("DAS TYPE IST " + typ)
+	      var ntenv = type_env.withClassImpl(typ, classname)
+	      val tclass_funcs = ntenv.typeclasses_map(classname).getFuncs
+	      val tfuns = funs map {
+	        case InstanceFunExpr(name, fun) => {
+	          val (tfun, nte) = fun.type_infer(ntenv)
+	          ntenv = nte.unifyTypes(tfun.typ, tclass_funcs(name)).simplify()
+	          val tfun2 = tfun.typeSubst(ntenv)
+	          TInstanceFunExpr(tfun2.typ, name, tfun2.asInstanceOf[TFunDef])
+	        }
+	      }
+	      (TInstanceDef(typ, classname, tfuns), ntenv)
+	      
 	    }
       }
 	}
