@@ -265,3 +265,8 @@ class Foo a
 La limitation n'est pas dans le typeur mais dans l'interpreteur, qui dispatche sur le type du premier arguement, dans l'implantation actuelle.
 
 2. Les typeclasses ne fonctionnent pas avec les types paramétriques. Ceci est une limitation qui découle juste du manque de temps pour procéder a l'implantation.
+
+Conclusion
+----------
+
+Bien que le langage ne soit pas terminé, l'objectif était de démontrer l'utilité d'un mécanisme de typeclasses dans un langage fonctionnel de type ML. On voit en effet qu'il est possible d'implanter des fonctionnalités génériques utiles qui sont impossible a implanter dans les langages dérivés de ML existants, si l'on omet Haskell.
