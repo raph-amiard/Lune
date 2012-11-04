@@ -53,7 +53,7 @@ def maplist il fn = match il with
   | Node(i, tail) -> Node((fn i), (maplist tail fn))
   | Tail(i) -> Tail((fn i)) ;;
 
-maplist il ;;
+maplist il (fun a -> * a 2);;
 = Node((2, Node((4, Node((6, Node((8, Tail(10)))))))))
 ~~~
 

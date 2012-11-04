@@ -103,7 +103,7 @@ case class TypeFunction(ts: List[Type]) extends Type {
   }
   
   override def toString() = {
-    "FUNT" + "(" + ts.mkString(" -> ") + ")"
+    ts.mkString(" -> ")
   }
   
   override def getFresh(ctx : Ctx) = {
@@ -168,6 +168,11 @@ case class SumType(name : String, var ts : Map[String, Type]) extends Type {
   }
   
   override def hashCode() : Int = name.hashCode()
+  
+  override def equals(that : Any) = that match {
+    case SumType(nname, ts) => name == nname
+    case _ => false
+  }
   
   override def toString() = name
     //(ts map { case (cons, typ) => cons + " of " + typ }) mkString " | "

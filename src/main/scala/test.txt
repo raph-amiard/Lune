@@ -10,6 +10,12 @@ def sumlist a = match a with
   | Node(i, tail) -> + i (sumlist tail)
   | Tail(i) -> i ;;
   
+  
+def maplist il fn = match il with
+  | Node(i, tail) -> Node((fn i), (maplist tail fn))
+  | Tail(i) -> Tail((fn i)) ;;
+
+  
 def il = Node(1, Node(2, Node(3, Node(4, Tail(5))))) ;;
 
 class Foo a 
