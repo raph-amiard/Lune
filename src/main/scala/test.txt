@@ -2,34 +2,49 @@ type tt = | T1 of int * int | T2 of int * int * int ;;
 def fn a = match a with 
   | T1(b, c) -> + b c
   | T2(b, c, d) -> + b (* c d) ;;
-  
-  
+
+
 type intlist = | Node of int * intlist | Tail of int ;;
+type inttree = | TNode of int * inttree * inttree | Leaf of int ;;
 
 def sumlist a = match a with
   | Node(i, tail) -> + i (sumlist tail)
   | Tail(i) -> i ;;
-  
-  
+
+
 def maplist il fn = match il with
   | Node(i, tail) -> Node((fn i), (maplist tail fn))
   | Tail(i) -> Tail((fn i)) ;;
 
-  
+
 def il = Node(1, Node(2, Node(3, Node(4, Tail(5))))) ;;
+def it = TNode(1, TNode(2, Leaf(3), Leaf(4)), Leaf(7)) ;;
 
 class Foo a 
   with bar : fun(a -> int)
   with bar2 : fun(a -> (int * int)) ;;
 
+class Countable a
+  with count : fun(a -> int) ;;
+
+instance Countable intlist
+  with count il = match il with
+    | Node(i, tail) -> + 1 (count tail)
+    | Tail(i) -> 1
+
+instance Countable inttree
+  with count it = match it with
+    | TNode(v, n1, n2) -> + 1 (+ (count n1) (count n2))
+    | Leaf(v) -> 1
+
 instance Foo int
   with bar a = + a 2
   with bar2 a = (a, a) ;;
-  
+
 instance Foo (int * int)
   with bar (a, b) = + a b
   with bar2 (a, b) = (a, b) ;;
-  
+
 instance Foo tt
   with bar a = match a with | T1(a, b) -> + a b | T2(a,b,c) -> + a (+ b c)
   with bar2 a = match a with | T1(a, b) -> (b, a) | T2(a,b,c) -> (a, (+ b c)) ;;
