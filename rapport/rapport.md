@@ -37,9 +37,28 @@ class Substraction(v1 : Int, v2 : Int) {
 
 On voit ici que la procédure eval, a un comportement hétérogène selon le type, qui dépend directement du type de son argument implicite "this".
 
-Un langage hybride, tel que OCaml, fournit 
+OCaml, langage hybride, au coeur fonctionnel et implantant une surcouche objet, fournit un moyen d'implanter du polymorphisme ad-hoc au travers de sa couche objet. Cependant, OCaml n'étant pas un langage objet, les objets sont utilisés plus ou moins souvent dans du code OCaml idiomatique, et la connection entre les deux niveaux d'abstraction n'est pas forcément évidente.
 
-### The expression problem
+C'est pourquoi il m'a semblé interressant d'implanter un système de typeclasses sur un langage similaire au coeur fonctionnel de OCaml, Caml Light.
+
+### Modularité et extensibilité, ou "The expression problem"
+
+Comme cela a été esquissé en introduction, les typeclasses permettent de résoudre un problème d'extensibilité et de modularité très courant dans les langages statiquement typés, connu sous le nom d'"Expression problem"
+
+Dans un langage fonctionnel pur du type Caml Light, le moyen le plus simple et le plus répandu pour fournir un comportement variable en fonction du type des arguments est l'utilisation des types sommes, selon l'idiome suivant :
+
+~~~ocaml
+type Expr = 
+  | Val of int
+  | Addition of Expr * Expr
+  | Substraction of Expr * Expr
+
+let eval e = function 
+  | Val(v) -> v
+  | Addition(v1, v2) -> (eval v1) + (eval v2)
+  | Substraction(v1, v2) -> (eval v1) - (eval v2)
+~~~
+
 ### Extension des comportements structurels au langage
 
 Presentation du langage
