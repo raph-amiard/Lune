@@ -220,3 +220,48 @@ maplist il (fun a -> * a 2);;
 
 ### TypeClasses
 
+Enfin, Lune implante une version complète, mais grandement simplifiée, des typeclasses a la Haskell, ce qui nous permet d'avoir du polymorphisme ad-hoc dans un style de programmation purement fonctionnel.
+
+~~~ocaml
+type IntList = | Node of int * IntList | Tail of int ;;
+type IntTree = | TNode of int * IntTree * IntTree | Leaf of int ;;
+
+class Countable a
+  with count : fun(a -> int) ;;
+  
+instance Countable IntList
+  with count il = match il with
+    | Node(i, tail) -> + 1 (count tail)
+    | Tail(i) -> 1
+
+instance Countable IntTree
+  with count it = match it with
+    | TNode(v, n1, n2) -> + 1 (+ (count n1) (count n2))
+    | Leaf(v) -> 1
+~~~
+
+Cet exemple illustre comment les typeclasses permettent de définir des protocoles génériques sur les types, ce qui est particulièrement utile poru les opérations primitives d'un langage.
+
+Pour donner un exemple, la fonction map d'ocaml n'est pas polymorphique, et ne fonctionne que sur les listes. Si l'on veut l'utiliser sur un tableau, il est nécessaire d'utiliser la fonction spécifique aux tableaux.
+
+Avec les typeclasses, on peut imaginer un système ressemblant a celui de haskell :
+
+~~~haskell
+class  Functor f  where
+    fmap :: (a -> b) -> f a -> f b
+~~~
+
+ou chaque fonction map n'est qu'une facette de la fonction fmap, généralisée a tout les types mappables.
+
+Point qui nous amène aux limitations de l'implantation des typeclasses dans Lune :
+
+1. Les typeclasses ne peuvent dispatcher que sur le premier argument des fonctions définies. Ceci veut dire que la classe suivante ne pourra pas mener a du code fonctionnel dans l'état actuel.
+
+~~~ocaml
+class Foo a 
+  with bar : fun(int -> a -> int)
+~~~
+
+La limitation n'est pas dans le typeur mais dans l'interpreteur, qui dispatche sur le type du premier arguement, dans l'implantation actuelle.
+
+2. Les typeclasses ne fonctionnent pas avec les types paramétriques. Ceci est une limitation qui découle juste du manque de temps pour procéder a l'implantation.
