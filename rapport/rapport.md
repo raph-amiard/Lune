@@ -154,9 +154,69 @@ Dans cette section nous présenterons brièvement les caractéristiques de Lune,
 Lune, étant un langage de la classe des ML, possède un typeur appliquant un algorithme d'inférence de type Hindley-Milner, ce qui rend la plupart des déclarations de types inutiles. Cet algorithme suit l'algorithme original dans le contexte du lambda-calcul typé. Il est cependant nécessaire de l'adapter a certaines des fonctionnalités du langage, ce qui sera décrit dans les sections suivantes.
 
 ### Types de données
+
+Lune possède les types de données primitifs suivants : Entier, Flottant, Booléen, Chaine de caractères, Unit. Lune offre également la possibilité de créer des types composites.
+
 #### Tuples
+
+La première classe de type composite que l'on peut créer sont les tuples :
+
+~~~ocaml
+def tuplint = (1, 2, 3, 4)
+(* = (1, 2, 3, 4) *)
+~~~
+
+Les tuples sont typés structurellement, comme il est de rigueur. L'extension du typeur au types sommes se fait de manière relativement évidente, en parcourant récursivement les sous composantes des types tuples, et en les unifiant une a une.
+
 #### Types somme
+
+La deuxième classe de type composite que l'on peut créer sont les types somme
+
+~~~ocaml
+type Expr = 
+  | Val of int
+  | Addition of Expr * Expr
+  | Substraction of Expr * Expr ;;
+~~~
+
+Les types sommes sont typés nominalement. On ne peut avoir de type somme anonyme (il doit forcément faire partie d'une déclaration de type). En cela, Lune suit le comportement des langages ML.
+
+L'extension du typeur aux types sommes est relativement simple, étant donné que ceux ci sont nominalement typés. Cependant, un but dans la conception de Lune est de gérer les types génériques, même ci ceux ci ne sont pas complètement implantés dans la version actuelle du langage, par manque de temps.
+
+Cette contrainte implique qu'il faut parcourir récursivement les branches des types sommes pour unifier les éventuels types paramétriques. Si l'on combine cette contrainte avec la necessité de gérer les types sommes récursifs, on comprends que l'implantation du typage des types sommes demande le plus grand soin.
+
 ### Filtrage par motif
+
+Lune implante également le filtrage par motif, a la fois pour les tuples et pour les types sommes. Le typage du filtrage est relativement simple, et permet par la même occasion au typeur de récupérer des informations de type.
+
+~~~ocaml
+type IntList = 
+  | Node of int * IntList
+  | Tail of int ;;
+
+def sumlist a = match a with
+  | Node(i, tail) -> + i (sumlist tail)
+  | Tail(i) -> i ;;
+
+def il = Node(1, Node(2, Node(3, Node(4, Tail(5))))) ;;
+
+sumlist il ;;
+
+= 15
+~~~
+
 ### Fonctions d'ordre superieur
+
+Lune implante bien évidemment les fonctions comme valeurs de première classe, ce qui permet de programmer dans le style fonctionnel idiomatique. Les fonctions gèrent la sous, et la sur application. dans la lignée du lambda calcul, toute fonction a plusieurs arguments peut être considéré comme la composition de fonctions unaires.
+
+~~~ocaml
+def maplist il fn = match il with
+  | Node(i, tail) -> Node((fn i), (maplist tail fn))
+  | Tail(i) -> Tail((fn i)) ;;
+
+maplist il (fun a -> * a 2);;
+= Node(2, Node(4, Node(6, Node(8, Tail(10)))))
+~~~
+
 ### TypeClasses
 
