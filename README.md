@@ -15,27 +15,27 @@ Its features include :
 
 - Hindley-Milner style type inference
 
-~~~
+~~~ocaml
  > def pow2 a = * a a ;;
  = fun(int -> int)
 ~~~
 
 - Tuples
 
-~~~
+~~~ocaml
  > def mytuple = (1, 2)
  = (1, 2)
 ~~~
 
 - Sum types, including recursive sum types
 
-~~~
+~~~ocaml
  > type intlist = | Node of int * intlist | Tail of int ;;
 ~~~
 
 - Pattern matching 
 
-~~~
+~~~ocaml
 def sumlist a = match a with
   | Node(i, tail) -> + i (sumlist tail)
   | Tail(i) -> i ;;
@@ -48,7 +48,7 @@ sumlist il ;;
 
 - First class functions
 
-~~~
+~~~ocaml
 def maplist il fn = match il with
   | Node(i, tail) -> Node((fn i), (maplist tail fn))
   | Tail(i) -> Tail((fn i)) ;;
@@ -59,7 +59,7 @@ maplist il (fun a -> * a 2);;
 
 - Haskell style, but very basic, typeclasses
 
-~~~
+~~~ocaml
 class Foo a 
   with bar : fun(a -> int)
   with bar2 : fun(a -> (int * int)) ;;
