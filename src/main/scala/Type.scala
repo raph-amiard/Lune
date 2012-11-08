@@ -140,7 +140,7 @@ case class ProductType(ts : List[Type]) extends Type {
 
 case class SumType(name : String, var ts : Map[String, Type]) extends Type {
   
-  override def concretize(type_env : TypeEnv) : SumType = 
+  override def concretize(type_env : TypeEnv) : SumType = {
     type_env.current_sum_type match {
       case Some(st) => st
       case None => {
@@ -150,6 +150,7 @@ case class SumType(name : String, var ts : Map[String, Type]) extends Type {
         st
       }
     }
+  }
   
   override def getFresh(ctx : Ctx) : (SumType, Ctx) = {
     if (ctx.contains(this)) (ctx(this).asInstanceOf[SumType], ctx)
@@ -174,8 +175,8 @@ case class SumType(name : String, var ts : Map[String, Type]) extends Type {
     case _ => false
   }
   
-  override def toString() = name
-    //(ts map { case (cons, typ) => cons + " of " + typ }) mkString " | "
+  override def toString() = //name
+    (ts map { case (cons, typ) => cons + " of " + typ }) mkString " | "
     
   def updateRecursive(type_env : TypeEnv) = {
     val st = new SumType(name, new HashMap[String, Type])
@@ -186,6 +187,26 @@ case class SumType(name : String, var ts : Map[String, Type]) extends Type {
   
 }
 
-object PlaceHolderSumType extends SumType("", new HashMap[String, Type]) {
+object PlaceHolderSumType extends SumType("", HashMap()) {
   override def concretize(type_env : TypeEnv) : SumType = type_env.current_sum_type.get
+}
+
+class ParametricPlaceHolderSumType(polytypes : List[Type]) extends SumType("", HashMap()) {
+  
+  def instanciate(ts : List[Type]) : Type = {
+    if (ts.length != polytypes.length) 
+      throw new Exception("Incorrect number of types for parametric type instanciation")
+    val hh = polytypes.zip(ts).foldLeft(new HashMap[Type, Type])((h, tpair) => tpair match {
+      case (t1, t2) => h + (t1 -> t2)
+    })
+    t.getFresh(hh)._1
+  }
+  
+  override def get() = {
+    val (nt, _) = t.getFresh(new HashMap[Type, Type]())
+    nt
+  }
+  
+  override def toString() = t.toString
+    
 }

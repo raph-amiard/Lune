@@ -62,4 +62,11 @@ instance Evalable Expr
     | Val(v) -> v
     | Addition(v1, v2) -> + (eval v1) (eval v2)
     | Substraction(v1, v2) -> - (eval v1) (eval v2) ;;
+    
+type Foo a = | Bar of a | Baz of a * a ;;
+type Tree a = | Node of a * (Tree a) * (Tree a) | Leaf of a ;;
+
+def fn f = match f with
+  | Bar(a) -> a
+  | Baz(a, b) -> + a b ;;
   

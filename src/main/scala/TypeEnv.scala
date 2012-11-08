@@ -132,15 +132,21 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
    * A -> C, B -> C
    */
   def simplify() : TypeEnv = {
-    var has_changed = false
-    var te = this
-    while (has_changed) tmap foreach { 
-      case (t1, t2) => if (tmap contains t2) {
-        te = te.withTypeMapping(t1, tmap(t2))
-        has_changed = true
-      }
-	}
-    te
+    var has_changed = true
+    var ntmap = tmap
+    while (has_changed) {
+      has_changed = false
+      var newmappings = ntmap
+      ntmap foreach { 
+        case (t1, t2) if ntmap contains t2 => {
+          newmappings = newmappings + (t1 -> ntmap(t2))
+          has_changed = true
+        }
+        case _ => 
+	  }
+      ntmap = newmappings
+    }
+    copyWith(tmap = ntmap)
   }
   
    def unifyVar(v : String, t : Type) = unifyTypes(getVarType(v), t)
@@ -154,7 +160,8 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
     println("IN UNIFY ", t1, t2)
     
     def chain_unify(tpoly: TypePoly, tpoly_binding: Type) = 
-      if (tmap.contains(tpoly)) unifyTypes(tmap(tpoly), tpoly_binding, cu_sum_type)
+      if (tpoly == tpoly_binding) this
+      else if (tmap.contains(tpoly)) unifyTypes(tmap(tpoly), tpoly_binding, cu_sum_type)
       else if (tmap.contains(tpoly_binding)) unifyTypes(tpoly, tmap(tpoly_binding), cu_sum_type)
       else this.withTypeMapping(tpoly, tpoly_binding).withClassConstraints(tpoly, tpoly_binding)
 	  
