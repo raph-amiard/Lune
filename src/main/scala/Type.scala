@@ -9,10 +9,6 @@ sealed trait AbstractType {
   def get() : Type
 }
 
-trait NamedType {
-  
-}
-
 class TypeMold(t: Type) extends AbstractType {
   override def get() = {
     val (nt, _) = t.getFresh(new HashMap[Type, Type]())
@@ -22,7 +18,7 @@ class TypeMold(t: Type) extends AbstractType {
   override def toString() = t.toString()
 }
 
-class ParametricType(t: Type, polytypes : List[Type]) extends AbstractType {
+class ParametricType(var t : Option[Type], polytypes : List[Type]) extends AbstractType {
   
   def instanciate(ts : List[Type]) : Type = {
     if (ts.length != polytypes.length) 
@@ -30,16 +26,22 @@ class ParametricType(t: Type, polytypes : List[Type]) extends AbstractType {
     val hh = polytypes.zip(ts).foldLeft(new HashMap[Type, Type])((h, tpair) => tpair match {
       case (t1, t2) => h + (t1 -> t2)
     })
-    t.getFresh(hh)._1
+    t.get.getFresh(hh)._1
   }
   
+  def parametrize(ts : List[Type]) : AbstractType = new ParametrizedType(this, ts)
+  
   override def get() = {
-    val (nt, _) = t.getFresh(new HashMap[Type, Type]())
+    val (nt, _) = t.get.getFresh(new HashMap[Type, Type]())
     nt
   }
   
   override def toString() = t.toString
     
+}
+
+object Type {
+  type Ctx = HashMap[Type, Type]
 }
 
 /* ==================================================
@@ -50,6 +52,29 @@ sealed trait Type extends AbstractType {
   def concretize(type_env: TypeEnv) : Type = this
   def getFresh(ctx : Ctx) : (Type, Ctx) = (this, ctx)
   override def get() = this
+}
+
+class WrappedType(var t : Option[Type]) extends Type {
+  override def concretize(type_env: TypeEnv) : Type = get.concretize(type_env)
+  override def getFresh(ctx : Ctx) : (Type, Ctx) = get.getFresh(ctx)
+  override def get() : Type = t.get
+}
+
+class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends Type {
+  var t : Option[Type]
+  override def get() = {
+    t match {
+      case Some(ty) => ty
+      case None => {
+        t = Some(ptype.instanciate(ts))
+        t.get
+      }
+    }
+  }
+  override def concretize(type_env: TypeEnv) : Type = get.concretize(type_env)
+  override def getFresh(ctx : Ctx) : (Type, Ctx) = {
+    val (nt, nctx) = get.getFresh(ctx)
+  }
 }
 
 /* ==================================================
@@ -138,34 +163,21 @@ case class ProductType(ts : List[Type]) extends Type {
   }
 }
 
-case class SumType(name : String, var ts : Map[String, Type]) extends Type {
+case class SumType(name : String, val ts : Map[String, Type]) extends Type {
   
-  override def concretize(type_env : TypeEnv) : SumType = {
-    type_env.current_sum_type match {
-      case Some(st) => st
-      case None => {
-        val st = new SumType(name, ts)
-        val nte = type_env.withCurrentSumType(st)
-        st.ts = ts.map { case (s, t) => (s, t.concretize(nte))}
-        st
-      }
-    }
-  }
+  override def concretize(type_env : TypeEnv) : SumType =
+    new SumType(name, ts.map { case (s, t) => (s, t.concretize(type_env))})
   
   override def getFresh(ctx : Ctx) : (SumType, Ctx) = {
-    if (ctx.contains(this)) (ctx(this).asInstanceOf[SumType], ctx)
-    else {
-      val st = new SumType(name, ts)
-      var cctx = ctx + (this -> st)
-      st.ts = ts map {
-        case (s, t) => {
-          val (ntype, nctx) = t getFresh cctx
-          cctx = nctx
-          (s, ntype)
-        }
+    var cctx = ctx 
+    val nst = new SumType(name, ts map {
+      case (s, t) => {
+        val (ntype, nctx) = t getFresh cctx
+        cctx = nctx
+        (s, ntype)
       }
-      (st , cctx)
-    }
+    })
+    (nst , cctx)
   }
   
   override def hashCode() : Int = name.hashCode()
@@ -175,38 +187,7 @@ case class SumType(name : String, var ts : Map[String, Type]) extends Type {
     case _ => false
   }
   
-  override def toString() = //name
+  override def toString() = 
     (ts map { case (cons, typ) => cons + " of " + typ }) mkString " | "
-    
-  def updateRecursive(type_env : TypeEnv) = {
-    val st = new SumType(name, new HashMap[String, Type])
-    val nte = type_env.withCurrentSumType(st)
-    st.ts = ts.map { case (s, t) => (s, t.concretize(nte))}
-    st
-  }
-  
-}
-
-object PlaceHolderSumType extends SumType("", HashMap()) {
-  override def concretize(type_env : TypeEnv) : SumType = type_env.current_sum_type.get
-}
-
-class ParametricPlaceHolderSumType(polytypes : List[Type]) extends SumType("", HashMap()) {
-  
-  def instanciate(ts : List[Type]) : Type = {
-    if (ts.length != polytypes.length) 
-      throw new Exception("Incorrect number of types for parametric type instanciation")
-    val hh = polytypes.zip(ts).foldLeft(new HashMap[Type, Type])((h, tpair) => tpair match {
-      case (t1, t2) => h + (t1 -> t2)
-    })
-    t.getFresh(hh)._1
-  }
-  
-  override def get() = {
-    val (nt, _) = t.getFresh(new HashMap[Type, Type]())
-    nt
-  }
-  
-  override def toString() = t.toString
     
 }

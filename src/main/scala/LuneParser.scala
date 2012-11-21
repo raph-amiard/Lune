@@ -88,8 +88,11 @@ object LuneParser extends RegexParsers {
   def sum_type_branch = ("|" ~> TT_ID <~ "of") ~ type_expr ^^ { case id ~ texpr => (id, texpr) }
   def sum_type = rep1(sum_type_branch) ^^ (SumTypeExpr(_))
   def fun_type_expr = "fun" ~> ("(" ~> rep1sep(paren_type_expr, "->") <~ ")") ^^ (FunctionTypeExpr(_))
-  def typedef = ("type" ~> (TT_ID+) <~ "=") ~! (sum_type | type_expr) ^^ {
+  def typedef_elem = ((TT_ID+) <~ "=") ~! (sum_type | type_expr) ^^ {
     case (id :: ptypes) ~ texpr => TypeDef(id, ptypes, texpr)
+  }
+  def typedef = "type" ~> rep1sep(typedef_elem, "and") ^^ {
+    case defs => TypeDefs(defs)
   }
   
   def typeclassdecl = ("class" ~> (TT_ID ~ TT_ID)) ~ rep("with" ~> typeclassfundecl) ^^ {

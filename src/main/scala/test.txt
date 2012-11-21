@@ -46,8 +46,12 @@ instance Foo (int * int)
   with bar2 (a, b) = (a, b) ;;
 
 instance Foo tt
-  with bar a = match a with | T1(a, b) -> + a b | T2(a,b,c) -> + a (+ b c)
-  with bar2 a = match a with | T1(a, b) -> (b, a) | T2(a,b,c) -> (a, (+ b c)) ;;
+  with bar a = match a with 
+    | T1(a, b) -> + a b 
+    | T2(a,b,c) -> + a (+ b c)
+  with bar2 a = match a with 
+    | T1(a, b) -> (b, a) 
+    | T2(a,b,c) -> (a, (+ b c)) ;;
   
 type Expr = 
   | Val of int
@@ -64,7 +68,10 @@ instance Evalable Expr
     | Substraction(v1, v2) -> - (eval v1) (eval v2) ;;
     
 type Foo a = | Bar of a | Baz of a * a ;;
-type Tree a = | Node of a * (Tree a) * (Tree a) | Leaf of a ;;
+
+type Tree a = 
+  | Node of a * (Tree a) * (Tree a) 
+  | Leaf of a ;;
 
 def fn f = match f with
   | Bar(a) -> a

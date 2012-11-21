@@ -44,19 +44,21 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
 			       tconsmap : TypeEnv.TypeConsMap,
 			       ctypename : Option[String],
 			       match_type : Option[Type],
-			       current_sum_type : Option[SumType],
+			       in_type_def : Boolean,
 			       constraints_map : TypeEnv.ConstraintsMap,
 			       class_impl_map : TypeEnv.ClassImplMap,
-			       typeclasses_map : TypeEnv.TypeClassesMap) {
+			       typeclasses_map : TypeEnv.TypeClassesMap,
+			       types_being_defined : HashMap[String, PlaceHolderType]) {
   
   def this() = this(TypeEnv.default_varmap, 
 		  			new TypeEnv.TypeMap, 
 		  			new TypeEnv.AliasMap, 
 		  			new TypeEnv.TypeConsMap, 
-		  			None, None, None, 
+		  			None, None, false, 
 		  			new HashMap[Type, HashSet[String]],
 		  			new HashMap[Type, HashSet[String]],
-		  			new HashMap[String, TypeClass])
+		  			new HashMap[String, TypeClass],
+		  			new HashMap[String, PlaceHolderType])
   
   def copyWith(varmap : TypeEnv.VarMap = varmap,
 		  	   tmap : TypeEnv.TypeMap = tmap,
@@ -64,16 +66,22 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
 		  	   tconsmap : TypeEnv.TypeConsMap = tconsmap,
 		  	   ctypename : Option[String] = ctypename,
 		  	   match_type : Option[Type] = match_type,
-		  	   current_sum_type : Option[SumType] = current_sum_type,
+		  	   in_type_def : Boolean = in_type_def,
 		  	   constraints_map : TypeEnv.ConstraintsMap = constraints_map,
 		  	   class_impl_map : TypeEnv.ClassImplMap = class_impl_map,
-		  	   typeclasses_map : TypeEnv.TypeClassesMap = typeclasses_map) = 
-    new TypeEnv(varmap, tmap, amap, tconsmap, ctypename, match_type, current_sum_type, constraints_map, class_impl_map, typeclasses_map)
+		  	   typeclasses_map : TypeEnv.TypeClassesMap = typeclasses_map,
+		  	   types_being_defined : HashMap[String, PlaceHolderType] = types_being_defined) = 
+    new TypeEnv(varmap, tmap, amap, tconsmap, ctypename, 
+                match_type, in_type_def, constraints_map, 
+                class_impl_map, typeclasses_map, types_being_defined)
+  
+  def withTypeDef() = copyWith(in_type_def = true)
+  
+  def withTmpType(name : String, ptype : AbstractType) = 
+    copyWith(types_being_defined + (name -> ptype))
   
   def withTypeClass(name : String, tc : TypeClass) = 
     copyWith(typeclasses_map = typeclasses_map + (name -> tc))
-  
-  def withCurrentSumType(st : SumType) = copyWith(current_sum_type = Option(st))
   
   def withMatchType(t : Type) = copyWith(match_type = Option(t))
   

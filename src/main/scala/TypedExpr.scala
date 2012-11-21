@@ -82,6 +82,7 @@ case class TTuple(_type: Type, exprs : List[TypedExpr]) extends TypedExpr(_type)
 }
 
 case class TType(_type : Type) extends TypedExpr(_type)
+case class TAbstractType(_type : AbstractType) extends TypedExpr(TypeUnit)
 
 case class TMatchExpr(_type : Type, to_match : TypedExpr, match_clauses : List[TMatchClause]) extends TypedExpr(_type) {
   override def typeSubst(te : TypeEnv) : TMatchExpr =

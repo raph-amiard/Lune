@@ -18,6 +18,7 @@ object Typing {
 	  def withTypeEnv(t: TypedExpr) = (t, type_env)
 	  def typesFromExprs(ts : List[Expr], te : TypeEnv = type_env) = ts.map(x => x.type_infer(te) match {
         case (TType(tt), _) => tt
+        //case (TParTypeRef())
         case _ => throw new Exception("Can not happen")
 	  })
 	  
@@ -105,21 +106,45 @@ object Typing {
 	      (TTuple(ProductType(texprs.map(_.typ)), texprs), tenv)
 	    }
 	    
-	    case TypeDef(name, ptype_bindings, t) => {
-	      val polytypes = ptype_bindings.map(_ => new TypePoly)
-	      val tenv = (ptype_bindings zip polytypes).foldLeft(type_env)((tenv, b) => b match {
-	        case (s, t) => tenv.withAlias(s, t)
-	      }).withTypeName(name)
-	      t.type_infer(tenv) match {
-	        case (TType(tt), ntenv) => {
-	          val ptype = if (polytypes.isEmpty) tt else new ParametricType(tt, polytypes)
-	          println("TYPE : " + ptype)
-	          val ntenv2 = ntenv.withAlias(name, ptype)
-	          println(ntenv2)
-	          (TValUnit, ntenv2)
+	    case TypeDefs(defs) => {
+	      
+	      // Add temporary types to the environment, so that defined types can refer to each other
+	      val with_tmptypes_env = defs.foldLeft(type_env)((ntenv, typedef) => typedef match {
+	        case TypeDef(name, ptype_bindings, t) => {
+	          val polytypes = ptype_bindings.map(_ => new TypePoly)
+	          val phtype = if (polytypes.isEmpty) new ParametricType(polytypes)
+			    	       else new PlaceHolderType(None)
+	          ntenv.withTmpType(name, phtype)
 	        }
-	        case _ => throw new Exception("CAN NOT HAPPEN")
+	      })
+	      
+	      val types = defs map {
+	        case TypeDef(name, ptype_bindings, t) => {
+	          val polytypes = ptype_bindings.map(_ => new TypePoly)
+	      
+	          val tenv = (ptype_bindings zip polytypes).foldLeft(with_tmptypes_env)((tenv, b) => b match {
+	            case (s, t) => tenv.withAlias(s, t)
+	          }).withTypeName(name)
+	      
+	      
+	          t.type_infer(tenv) match {
+	            case (TType(tt), ntenv) => {
+	              val subt = tenv.types_being_defined(name)
+	              subt.t = Some(tt)
+	              val ptype : AbstractType = if (polytypes.isEmpty) tt else subt
+	              println("TYPE : " + ptype)
+	              (name, ptype)
+	            }
+	            case _ => throw new Exception("CAN NOT HAPPEN")
+			   }
+	        }
 	      }
+	      
+	      val ntenv = types.foldLeft(type_env)((ntenv, n_and_t) => n_and_t match {
+	        case (name, ptype) => ntenv.withAlias(name, ptype)
+	      })
+	      
+          (TValUnit, ntenv)
 	    }
 	    
 	    case NamedTypeExpr(t) => (TType(t match {
@@ -128,7 +153,9 @@ object Typing {
 	      case "float" => TypeDouble
 	      case "bool" => TypeBool
 	      case "nil" => TypeUnit
-	      case x => type_env.getAlias(x)
+	      case x => if (type_env.in_type_def)
+	    	  		  type_env.types_being_defined.getOrElse(x, type_env.getAlias(x)).get()
+	    	  		else type_env.getAlias(x)
 	    }), type_env)
 	    
 	    case ParametricTypeInst(tn, ts) => {
@@ -148,8 +175,7 @@ object Typing {
 	        case Some(name) => {
 	          // Get constructor names and type expressions
 	          val (conses, texprs) = ts.unzip
-	          val te = type_env.withAlias(name, PlaceHolderSumType)
-	          val types = typesFromExprs(texprs.toList, te = te)
+	          val types = typesFromExprs(texprs.toList, te = type_env)
 	          val m = (conses zip types).toMap
 	          val sum_type = SumType(name, m)
 	          var ntenv = type_env
@@ -238,7 +264,6 @@ object Typing {
 	      tc.getFuncsWithClassConstraint map {
 	        case (n, ft) => tenv = tenv.withVarToMold(n, ft)
 	      }
-	      println("TENV : " + tenv)
 	      (TTypeClassDef(name, (names zip fun_types).toMap), tenv.withTypeClass(name, tc))
 	    }
 	    

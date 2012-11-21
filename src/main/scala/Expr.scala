@@ -37,7 +37,8 @@ case class Def(name: String, expr: Expr) extends Expr
 case class IfExpr(cond: Expr, body: Expr, alt:Expr) extends Expr
 case class Tuple(exprs : List[Expr]) extends Expr
 
-case class TypeDef(name: String, ptype_bindings: List[String], t: Expr) extends Expr
+case class TypeDef(name: String, ptype_bindings: List[String], t: Expr)
+case class TypeDefs(td : List[TypeDef]) extends Expr
 case class NamedTypeExpr(n : String) extends Expr
 case class ParametricTypeInst(tn : String, ts : List[Expr]) extends Expr
 case class ProductTypeExpr(ts : List[Expr]) extends Expr

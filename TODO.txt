@@ -1,0 +1,39 @@
+TODO : Sum types
+================
+
+- ParametricTypeInst must return ParametricSumTypeRef 
+if the parametrized type is in the list of being defined types
+
+
+type ttt a b = | B of (ttt a b) * (ttt b a) 
+
+Concretize is used after unification, to make correct type with substituted instances
+getFresh is used to get a new instance of the type with fresh polytypes
+should be used only by TypeMold and ParametricType (internally)
+
+When a regular recursive sum  type is used :
+- During construction
+	- During definition, a WrappedType(SumType) is used
+	- During the self reference, the wrappedtype will be referenced
+- During getFresh
+	- Need to bound recursion of getFresh
+	- Easy since it is the same type being referenced
+	- Just stop at level 1 of recursion (make subfunction getFreshR)	
+- During concretize
+	- Same as getFresh
+
+
+When a parametric recursive sum type is used :
+- During construction
+	- During definition, a ParametricType(SumType) is created
+	- During the self reference, a ParametrizedType(PType(SumType)) is created
+- During getFresh
+	- More complicated ..
+	- Still need to bound recursion
+	- But the subtype might not be the same
+	- Need to delay SOME of the recursive calls to getFresh until the types are actually used
+
+	
+In the definition of a type, polys are necessarily from parametric types
+Only in function definitions can polys arise without an explicit parametric type
+So in a sum-type definition, every poly is from an explicit parametric type
