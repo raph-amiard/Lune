@@ -29,7 +29,7 @@ class ParametricType(var t : Option[Type], polytypes : List[Type]) extends Abstr
     t.get.getFresh(hh)._1
   }
   
-  def parametrize(ts : List[Type]) : AbstractType = new ParametrizedType(this, ts)
+  def parametrize(ts : List[Type]) = new ParametrizedType(this, ts)
   
   override def get() = {
     val (nt, _) = t.get.getFresh(new HashMap[Type, Type]())
@@ -55,26 +55,32 @@ sealed trait Type extends AbstractType {
 }
 
 class WrappedType(var t : Option[Type]) extends Type {
-  override def concretize(type_env: TypeEnv) : Type = get.concretize(type_env)
-  override def getFresh(ctx : Ctx) : (Type, Ctx) = get.getFresh(ctx)
+  override def concretize(type_env: TypeEnv) : Type = get
+  override def getFresh(ctx : Ctx) : (Type, Ctx) = (this, ctx)
   override def get() : Type = t.get
 }
 
 class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends Type {
-  var t : Option[Type]
-  override def get() = {
-    t match {
+  
+  var t : Option[Type] = None
+  
+  override def get() = t match {
       case Some(ty) => ty
-      case None => {
-        t = Some(ptype.instanciate(ts))
-        t.get
-      }
-    }
+      case None => { t = Some(ptype.instanciate(ts)); t.get }
   }
-  override def concretize(type_env: TypeEnv) : Type = get.concretize(type_env)
+  
+  override def concretize(type_env: TypeEnv) : Type = get
+  
   override def getFresh(ctx : Ctx) : (Type, Ctx) = {
-    val (nt, nctx) = get.getFresh(ctx)
+    var nnctx = ctx
+    val new_ts = ts map (t => {
+      val (nt, nctx) = t.getFresh(ctx)
+      nnctx = nctx
+      nt
+    })
+    (new ParametrizedType(ptype, new_ts), nnctx)
   }
+  
 }
 
 /* ==================================================
@@ -167,6 +173,8 @@ case class SumType(name : String, val ts : Map[String, Type]) extends Type {
   
   override def concretize(type_env : TypeEnv) : SumType =
     new SumType(name, ts.map { case (s, t) => (s, t.concretize(type_env))})
+  
+  def getTypeForCons(cons : String) = ts(cons).get
   
   override def getFresh(ctx : Ctx) : (SumType, Ctx) = {
     var cctx = ctx 

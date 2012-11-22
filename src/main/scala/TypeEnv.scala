@@ -47,8 +47,7 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
 			       in_type_def : Boolean,
 			       constraints_map : TypeEnv.ConstraintsMap,
 			       class_impl_map : TypeEnv.ClassImplMap,
-			       typeclasses_map : TypeEnv.TypeClassesMap,
-			       types_being_defined : HashMap[String, PlaceHolderType]) {
+			       typeclasses_map : TypeEnv.TypeClassesMap) {
   
   def this() = this(TypeEnv.default_varmap, 
 		  			new TypeEnv.TypeMap, 
@@ -57,8 +56,7 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
 		  			None, None, false, 
 		  			new HashMap[Type, HashSet[String]],
 		  			new HashMap[Type, HashSet[String]],
-		  			new HashMap[String, TypeClass],
-		  			new HashMap[String, PlaceHolderType])
+		  			new HashMap[String, TypeClass])
   
   def copyWith(varmap : TypeEnv.VarMap = varmap,
 		  	   tmap : TypeEnv.TypeMap = tmap,
@@ -69,16 +67,13 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
 		  	   in_type_def : Boolean = in_type_def,
 		  	   constraints_map : TypeEnv.ConstraintsMap = constraints_map,
 		  	   class_impl_map : TypeEnv.ClassImplMap = class_impl_map,
-		  	   typeclasses_map : TypeEnv.TypeClassesMap = typeclasses_map,
-		  	   types_being_defined : HashMap[String, PlaceHolderType] = types_being_defined) = 
+		  	   typeclasses_map : TypeEnv.TypeClassesMap = typeclasses_map) = 
     new TypeEnv(varmap, tmap, amap, tconsmap, ctypename, 
                 match_type, in_type_def, constraints_map, 
-                class_impl_map, typeclasses_map, types_being_defined)
+                class_impl_map, typeclasses_map)
   
   def withTypeDef() = copyWith(in_type_def = true)
-  
-  def withTmpType(name : String, ptype : AbstractType) = 
-    copyWith(types_being_defined + (name -> ptype))
+  def outTypeDef() = copyWith(in_type_def = false)
   
   def withTypeClass(name : String, tc : TypeClass) = 
     copyWith(typeclasses_map = typeclasses_map + (name -> tc))
@@ -164,7 +159,9 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
    * This function handle type checking (checking that
    * t1 and t2 are indeed unifiable or not)
    */
-  def unifyTypes(t1: Type, t2: Type, cu_sum_type : Option[SumType] = None) : TypeEnv = {
+  def unifyTypes(tt1: Type, tt2: Type, cu_sum_type : Option[SumType] = None) : TypeEnv = {
+    val t1 = tt1.get
+    val t2 = tt2.get
     println("IN UNIFY ", t1, t2)
     
     def chain_unify(tpoly: TypePoly, tpoly_binding: Type) = 
@@ -224,6 +221,8 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
           else throw new Exception("Incompatible sum types")
         case _ => throw new Exception("Incompatible types")
       }
+      
+      case wt : WrappedType => unifyTypes(wt.get, t2, cu_sum_type)
       
     }
   }

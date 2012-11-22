@@ -112,25 +112,31 @@ object Typing {
 	      val with_tmptypes_env = defs.foldLeft(type_env)((ntenv, typedef) => typedef match {
 	        case TypeDef(name, ptype_bindings, t) => {
 	          val polytypes = ptype_bindings.map(_ => new TypePoly)
-	          val phtype = if (polytypes.isEmpty) new ParametricType(polytypes)
-			    	       else new PlaceHolderType(None)
-	          ntenv.withTmpType(name, phtype)
+	          val phtype = if (!polytypes.isEmpty) new ParametricType(None, polytypes)
+			    	       else new WrappedType(None)
+	          ntenv.withAlias(name, phtype)
 	        }
 	      })
 	      
+	      var ntenv = with_tmptypes_env
 	      val types = defs map {
 	        case TypeDef(name, ptype_bindings, t) => {
 	          val polytypes = ptype_bindings.map(_ => new TypePoly)
 	      
-	          val tenv = (ptype_bindings zip polytypes).foldLeft(with_tmptypes_env)((tenv, b) => b match {
+	          ntenv = (ptype_bindings zip polytypes).foldLeft(ntenv)((tenv, b) => b match {
 	            case (s, t) => tenv.withAlias(s, t)
 	          }).withTypeName(name)
 	      
 	      
-	          t.type_infer(tenv) match {
-	            case (TType(tt), ntenv) => {
-	              val subt = tenv.types_being_defined(name)
-	              subt.t = Some(tt)
+	          t.type_infer(ntenv.withTypeDef) match {
+	            case (TType(tt), nntenv) => {
+	              ntenv = nntenv
+	              val subt = nntenv.amap(name)
+	              subt match {
+	                case subtt : ParametricType => subtt.t = Some(tt)
+	                case subtt : WrappedType => subtt.t = Some(tt)
+	                case _  =>
+	              }
 	              val ptype : AbstractType = if (polytypes.isEmpty) tt else subt
 	              println("TYPE : " + ptype)
 	              (name, ptype)
@@ -140,9 +146,11 @@ object Typing {
 	        }
 	      }
 	      
-	      val ntenv = types.foldLeft(type_env)((ntenv, n_and_t) => n_and_t match {
+	      ntenv = types.foldLeft(ntenv)((ntenv, n_and_t) => n_and_t match {
 	        case (name, ptype) => ntenv.withAlias(name, ptype)
 	      })
+	      
+	      println("DAST ENV : ", ntenv)
 	      
           (TValUnit, ntenv)
 	    }
@@ -153,15 +161,14 @@ object Typing {
 	      case "float" => TypeDouble
 	      case "bool" => TypeBool
 	      case "nil" => TypeUnit
-	      case x => if (type_env.in_type_def)
-	    	  		  type_env.types_being_defined.getOrElse(x, type_env.getAlias(x)).get()
-	    	  		else type_env.getAlias(x)
+	      case x => if (type_env.in_type_def) type_env.getAliasRaw(x).asInstanceOf[Type]
+	                else type_env.getAlias(x)
 	    }), type_env)
 	    
 	    case ParametricTypeInst(tn, ts) => {
 	      val types = typesFromExprs(ts)
 	      val ptype_instance = type_env.getAliasRaw(tn) match {
-	        case t : ParametricType => t.instanciate(types)
+	        case t : ParametricType => if (type_env.in_type_def) t.parametrize(types) else t.instanciate(types)
 	        case _ => throw new Exception("Trying to instanciate a non parametric type")
 	      }
 	      (TType(ptype_instance), type_env)
@@ -179,18 +186,16 @@ object Typing {
 	          val m = (conses zip types).toMap
 	          val sum_type = SumType(name, m)
 	          var ntenv = type_env
-	          val csum_type = sum_type.updateRecursive(ntenv)
-	          csum_type.ts foreach {
+	          sum_type.ts foreach {
 	            case (cons, typ) => {
-	              val fntype = new TypeFunction(List(typ, csum_type))
+	              val fntype = new TypeFunction(List(typ, sum_type))
 	              // The type of the constructors need to be polymorphic
 	              // in case of parametric sum types
-	              ntenv = ntenv.withTCons(cons, csum_type)
+	              ntenv = ntenv.withTCons(cons, sum_type)
 	              			   .withVarToMold(cons, fntype)
 	            }
 	          }
-	          println("HERE IS THE SUM TYPE ", csum_type)
-	          (TType(csum_type), ntenv)
+	          (TType(sum_type), ntenv)
 	        }
 	        case None => throw new Exception("Can't have a sum type decl outside of a type def")
 	      }
@@ -219,7 +224,7 @@ object Typing {
 	    case ConsMatchExpr(cons, vars) => {
 	      val sum_type = type_env.tconsmap(cons)
 	    		  				 .getFresh(new HashMap[Type, Type])._1
-	      val cons_type = sum_type.ts(cons)
+	      val cons_type = sum_type.getTypeForCons(cons)
 	      val ntenv = if (vars.length > 1) {
 	        cons_type match {
 	          case ProductType(types) => (vars zip types).foldLeft(type_env)((tenv, v) => 
