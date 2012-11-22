@@ -83,6 +83,9 @@ type tt a = | Node of (tt a) * (tt a) | Leaf of a ;;
 def tree_accum tree tree_fn = match tree with
   | Node(n1, n2) -> tree_fn (tree_accum n1 tree_fn) (tree_accum n2 tree_fn)
   | Leaf(el) -> el ;;
+  
+type t1 a = | T1 of (t2 a) | T2 of a
+and t2 a = | T3 of (t1 a) | T4 of a ;;
 
 def g f = match f with | Node(n1, n2) -> + (g n1) (g n2) | Leaf(i) -> i ;;
 
