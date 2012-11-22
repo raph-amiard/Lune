@@ -36,7 +36,7 @@ class ParametricType(var t : Option[Type], polytypes : List[Type]) extends Abstr
     nt
   }
   
-  override def toString() = t.toString
+  override def toString() = "(" + t.toString + " " + (polytypes mkString " ") + ")"
     
 }
 
@@ -64,12 +64,16 @@ class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends Type {
   
   var t : Option[Type] = None
   
-  override def get() = t match {
+  override def get() = {
+    t match {
       case Some(ty) => ty
-      case None => { t = Some(ptype.instanciate(ts)); t.get }
+      case None => { t = Some(ptype.instanciate(ts)); println("T ", t.get); println("T", t.get); t.get }
+    }
   }
   
-  override def concretize(type_env: TypeEnv) : Type = get
+  override def concretize(type_env: TypeEnv) : Type = {
+    new ParametrizedType(ptype, ts.map(_.concretize(type_env)))
+  }
   
   override def getFresh(ctx : Ctx) : (Type, Ctx) = {
     var nnctx = ctx
@@ -80,6 +84,8 @@ class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends Type {
     })
     (new ParametrizedType(ptype, new_ts), nnctx)
   }
+  
+  override def toString() = "ptype->(" + (ts mkString " ") + ")"
   
 }
 
@@ -108,7 +114,9 @@ case class TypePoly(id: Int, classes : Set[String]) extends Type {
   def this() = this(TypePoly.nextPoly(), new HashSet[String])
   def this(classes : Set[String]) = this(TypePoly.nextPoly(), classes)
   override def concretize(type_env : TypeEnv) : Type = type_env.bestType(this)
-  override def toString() = "P" + id.toString + "(" + (classes mkString ",") + ")"
+  override def toString() = {
+    "P" + id.toString + (if (classes.isEmpty) "" else "(" + (classes mkString ",") + ")")
+  }
   override def getFresh(ctx : Ctx) = 
     if (ctx.contains(this)) (ctx(this), ctx)
     else {
@@ -133,9 +141,7 @@ case class TypeFunction(ts: List[Type]) extends Type {
     else (ts(0), new TypeFunction(ts.tail))
   }
   
-  override def toString() = {
-    ts.mkString(" -> ")
-  }
+  override def toString() = "fun(" + (ts mkString " -> ") + ")"
   
   override def getFresh(ctx : Ctx) = {
     var cctx = ctx
@@ -195,7 +201,9 @@ case class SumType(name : String, val ts : Map[String, Type]) extends Type {
     case _ => false
   }
   
-  override def toString() = 
+  override def toString() = name
+  
+  def toStringDesc() = 
     (ts map { case (cons, typ) => cons + " of " + typ }) mkString " | "
     
 }

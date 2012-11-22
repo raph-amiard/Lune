@@ -116,7 +116,7 @@ object Interpreter {
       e.eval(new_env) 
     }
     
-    override def toString() = "fun(" + _type + ")"
+    override def toString() = "function : " + _type
     
   }
   

@@ -190,6 +190,7 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
         case ProductType(ts2) => 
           if (ts1.length != ts2.length) throw new Exception("Incompatible tuple types")
           else {
+            println("IN UNIFY PRODUCT TYPES")
             var ntm = this
             (ts1 zip ts2).map { case (t1, t2) => ntm = ntm.unifyTypes(t1, t2, cu_sum_type) }
             ntm
@@ -228,6 +229,6 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
   }
 
   override def toString() = 
-    "{VARMAP : " + varmap.toString + " TYPEMAP : " + tmap.toString + "}"
+    "{AMAP : " + amap.toString + " TYPEMAP : " + tmap.toString + "}"
   
 }

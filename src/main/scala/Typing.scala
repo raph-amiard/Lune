@@ -51,6 +51,7 @@ object Typing {
 	    case FunCall(fun, args) => {
 	      println("IN FUNCALL", fun, args)
 	      val (tfun, ntenv) = fun.type_infer(type_env)
+	      println("TFUN TYP", tfun.typ)
 	      tfun.typ match {
 	        case TypePrim() => throw new Exception("Can't call a non function type")
 	        case _ => {
@@ -63,6 +64,7 @@ object Typing {
 	          })
 	          val ret_type = new TypePoly()
 	          val fun_type = new TypeFunction(typed_args.map(x => x.typ) :+ ret_type)
+	          println("FUNCALL UNIFYTYPES ", tfun.typ, fun_type)
 	          tenv = tenv.unifyTypes(tfun.typ, fun_type)
 	          (TFunCall(ret_type, tfun, typed_args), tenv)
 	        }
@@ -108,10 +110,13 @@ object Typing {
 	    
 	    case TypeDefs(defs) => {
 	      
+	      val defs_and_polys = defs map (t => t match {
+	        case TypeDef(_, ptype_bindings, _) => (t, ptype_bindings.map(_ => new TypePoly))
+	      })
+	      
 	      // Add temporary types to the environment, so that defined types can refer to each other
-	      val with_tmptypes_env = defs.foldLeft(type_env)((ntenv, typedef) => typedef match {
-	        case TypeDef(name, ptype_bindings, t) => {
-	          val polytypes = ptype_bindings.map(_ => new TypePoly)
+	      val with_tmptypes_env = defs_and_polys.foldLeft(type_env)((ntenv, typedef) => typedef match {
+	        case (TypeDef(name, _ , t), polytypes) => {
 	          val phtype = if (!polytypes.isEmpty) new ParametricType(None, polytypes)
 			    	       else new WrappedType(None)
 	          ntenv.withAlias(name, phtype)
@@ -119,9 +124,8 @@ object Typing {
 	      })
 	      
 	      var ntenv = with_tmptypes_env
-	      val types = defs map {
-	        case TypeDef(name, ptype_bindings, t) => {
-	          val polytypes = ptype_bindings.map(_ => new TypePoly)
+	      val types = defs_and_polys map {
+	        case (TypeDef(name, ptype_bindings, t), polytypes) => {
 	      
 	          ntenv = (ptype_bindings zip polytypes).foldLeft(ntenv)((tenv, b) => b match {
 	            case (s, t) => tenv.withAlias(s, t)
@@ -130,6 +134,7 @@ object Typing {
 	      
 	          t.type_infer(ntenv.withTypeDef) match {
 	            case (TType(tt), nntenv) => {
+	              println("IN TYPE INFER" , nntenv)
 	              ntenv = nntenv
 	              val subt = nntenv.amap(name)
 	              subt match {

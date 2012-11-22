@@ -77,3 +77,13 @@ def fn f = match f with
   | Bar(a) -> a
   | Baz(a, b) -> + a b ;;
   
+  
+type tt a = | Node of (tt a) * (tt a) | Leaf of a ;;
+
+def tree_accum tree tree_fn = match tree with
+  | Node(n1, n2) -> tree_fn (tree_accum n1 tree_fn) (tree_accum n2 tree_fn)
+  | Leaf(el) -> el ;;
+
+def g f = match f with | Node(n1, n2) -> + (g n1) (g n2) | Leaf(i) -> i ;;
+
+Node(Leaf(12), Leaf(15)) ;;
