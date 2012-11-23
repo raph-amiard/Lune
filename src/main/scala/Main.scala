@@ -3,6 +3,7 @@ import main.scala.Typing._
 import main.scala.Interpreter._
 
 object Main extends App {
+  val DO_EVAL = false
   
   val type_env = new TypeEnv
   /*println(LuneParser("let a = 2 in 5"))
@@ -10,12 +11,6 @@ object Main extends App {
   println(LuneParser("let add = fun a b -> + a b in add 1 2"))
   println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12"))
   */
-  
-  println(LuneParser("let fact a = if == a 0 then 1 else * a (fact (- a 1)) in fact 12").typecheck(type_env))
-  
-  println(LuneParser("+ 5 5").typecheck(type_env)._1.typ)
-  println(LuneParser("+ 5 5").typecheck(type_env)._1.eval(Interpreter.prims))
-  println(LuneParser("let a = 2 in if == a 2 then 12 else 14").typecheck(type_env)._1.eval(Interpreter.prims))
   
   def readExpr() : String = {
     val input = readLine()
@@ -31,19 +26,21 @@ object Main extends App {
     System.out.flush()
     val input = readExpr()
     try {
-      val pexpr = LuneParser(input)
-      println("PARSED EXPR : " + pexpr)
-      val (texpr, ntenv) = pexpr.typecheck(repl_tenv)
-      println(texpr)
-      repl_tenv = ntenv
-      env.addConstructors(repl_tenv)
-      try {
-        val v = texpr.eval(env)
-        println("= " + v.toString)
-      } catch {
-        case e => println("Runtime error : " + e.getMessage())
-        e.printStackTrace()
-      }
+      val pexprs = LuneParser(input)
+      println("PARSED EXPRS : " + pexprs)
+      pexprs map (pexpr => {
+        val (texpr, ntenv) = pexpr.typecheck(repl_tenv)
+        println(texpr)
+        repl_tenv = ntenv
+        env.addConstructors(repl_tenv)
+        if (DO_EVAL) try {
+          val v = texpr.eval(env)
+          println("= " + v.toString)
+        } catch {
+          case e => println("Runtime error : " + e.getMessage())
+          e.printStackTrace()
+        }
+      })
     } catch {
       case e => {
         println("Type error : " + e.getMessage())

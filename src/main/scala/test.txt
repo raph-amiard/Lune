@@ -1,8 +1,17 @@
-type tt = | T1 of int * int | T2 of int * int * int ;;
-def fn a = match a with 
-  | T1(b, c) -> + b c
-  | T2(b, c, d) -> + b (* c d) ;;
+union tt of
+	T1 -> int * int
+	T2 -> int * int * int
+end
 
+union tt of 
+	T1 -> int * int
+	T2 -> int * int * int 
+end
+
+function fn a -> match a with
+	T1(b, c) -> + b c
+	T2(b, c, d) -> + b (* c d)
+end
 
 type intlist = | Node of int * intlist | Tail of int ;;
 type inttree = | TNode of int * inttree * inttree | Leaf of int ;;
@@ -90,3 +99,13 @@ and t2 a = | T3 of (t1 a) | T4 of a ;;
 def g f = match f with | Node(n1, n2) -> + (g n1) (g n2) | Leaf(i) -> i ;;
 
 Node(Leaf(12), Leaf(15)) ;;
+
+union tree a of
+	Node -> (tree a) * (tree a)
+	Leaf -> a
+end
+
+function sum_tree tr -> match tr with
+	Node(t1,t2) -> + (sum_tree t1) (sum_tree t2)
+	Leaf(i) -> i
+end

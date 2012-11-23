@@ -33,11 +33,12 @@ case class VarRef(id: String) extends Expr
 case class FunCall(fun: Expr, args: List[Expr]) extends Expr
 case class FunDef(args: List[Arg], body: Expr) extends Expr
 case class LetBind(name: String, expr: Expr, body: Expr) extends Expr
-case class Def(name: String, expr: Expr) extends Expr
+case class DoBlock(exprs: List[Expr]) extends Expr
+case class Val(name: String, expr: Expr) extends Expr
 case class IfExpr(cond: Expr, body: Expr, alt:Expr) extends Expr
 case class Tuple(exprs : List[Expr]) extends Expr
 
-case class TypeDef(name: String, ptype_bindings: List[String], t: Expr)
+case class TypeDef(name: String, ptype_bindings: List[String], t: Expr) extends Expr
 case class TypeDefs(td : List[TypeDef]) extends Expr
 case class NamedTypeExpr(n : String) extends Expr
 case class ParametricTypeInst(tn : String, ts : List[Expr]) extends Expr

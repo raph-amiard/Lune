@@ -81,7 +81,7 @@ object Typing {
 	      (TLetBind(tbody.typ, name, final_texpr, tbody), ntenv4)
 	    }
 	    
-	    case Def(name, expr) => {
+	    case Val(name, expr) => {
 	      val ntenv = type_env withVarToPoly name
 	      val (texpr, ntenv2) = expr.type_infer(ntenv)
 	      val ntenv3 = ntenv2.unifyVar(name, texpr.typ).simplify()
