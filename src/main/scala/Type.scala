@@ -31,6 +31,8 @@ class ParametricType(var t : Option[Type], polytypes : List[Type]) extends Abstr
   
   def parametrize(ts : List[Type]) = new ParametrizedType(this, ts)
   
+  def getParametrized() : ParametrizedType = new ParametrizedType(this, polytypes)
+  
   override def get() = {
     val (nt, _) = t.get.getFresh(new HashMap[Type, Type]())
     nt
@@ -54,25 +56,24 @@ sealed trait Type extends AbstractType {
   override def get() = this
 }
 
-class WrappedType(var t : Option[Type]) extends Type {
+trait WrapperType extends Type {
+  def getType() : Type
+}
+
+class WrappedType(var t : Option[Type]) extends WrapperType {
   override def concretize(type_env: TypeEnv) : Type = get
   override def getFresh(ctx : Ctx) : (Type, Ctx) = (this, ctx)
   override def get() : Type = t.get
+  override def getType() : Type = t.get
 }
 
-class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends Type {
-  
-  var t : Option[Type] = None
-  
-  override def get() = {
-    t match {
-      case Some(ty) => ty
-      case None => { t = Some(ptype.instanciate(ts)); println("T ", t.get); println("T", t.get); t.get }
-    }
-  }
+case class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends WrapperType {
   
   override def concretize(type_env: TypeEnv) : Type = {
-    new ParametrizedType(ptype, ts.map(_.concretize(type_env)))
+    println("IN PARAMETRIZED TYPE CONCRETIZE : " + this + " " + type_env)
+    val p = new ParametrizedType(ptype, ts.map(_.concretize(type_env)))
+    println("OUT PARAMETRIZED TYPE CONCRETIZE : " + p)
+    p
   }
   
   override def getFresh(ctx : Ctx) : (Type, Ctx) = {
@@ -85,7 +86,8 @@ class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends Type {
     (new ParametrizedType(ptype, new_ts), nnctx)
   }
   
-  override def toString() = "ptype->(" + (ts mkString " ") + ")"
+  override def getType() : Type = ptype.instanciate(ts)
+  override def toString() = "p(" + ptype.t.get + " " + (ts mkString " ") + ")"
   
 }
 
@@ -134,7 +136,12 @@ case class TypeFunction(ts: List[Type]) extends Type {
   
   assert(ts.length > 1)
   
-  override def concretize(type_env : TypeEnv) : TypeFunction = new TypeFunction(ts.map(_.concretize(type_env)))
+  override def concretize(type_env : TypeEnv) : TypeFunction = {
+    println("IN TYPEFUNCTION CONCRETIZE : " + this)
+    val tf = new TypeFunction(ts.map(_.concretize(type_env)))
+    println("OUT TYPEFUNCTION CONCRETIZE : " + tf)
+    tf
+  }
   
   def curry() : (Type, Type) = {
     if (ts.length == 2) (ts(0), ts(1)) 

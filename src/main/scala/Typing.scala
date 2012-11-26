@@ -38,14 +38,16 @@ object Typing {
               ntenv = ntenv withVarToPoly str
               ntenv getVarType str
             }
-            case TupleMatch(args) => new ProductType(args.map(build))
+            case TupleMatch(args) => new ProductType(args map build)
           }
             
-          val args_types = args.map(build)
-          
+          val args_types = args map build
           val (texpr, ntenv2) = body.type_infer(ntenv)
+          println("IN FUNDEF , ARGS_TYPES : " + args_types)
           val fun_type = new TypeFunction(args_types :+ texpr.typ)
-          (TFunDef(fun_type, args, texpr), ntenv2)
+          val tfundef = TFunDef(fun_type, args, texpr).typeSubst(ntenv2.simplify)
+          println("OUT FUNDEF, tfundef : " + tfundef)
+          (tfundef, type_env)
 	    }
 
 	    case FunCall(fun, args) => {
@@ -66,7 +68,9 @@ object Typing {
 	          val fun_type = new TypeFunction(typed_args.map(x => x.typ) :+ ret_type)
 	          println("FUNCALL UNIFYTYPES ", tfun.typ, fun_type)
 	          tenv = tenv.unifyTypes(tfun.typ, fun_type)
-	          (TFunCall(ret_type, tfun, typed_args), tenv)
+	          val fncall = TFunCall(ret_type, tfun, typed_args).typeSubst(tenv.simplify)
+	          println("FUN CALL RET TYPE : ", fncall._type)
+	          (fncall, tenv)
 	        }
 	      }
 	    }
@@ -87,7 +91,17 @@ object Typing {
 	      val ntenv3 = ntenv2.unifyVar(name, texpr.typ).simplify()
 	      val final_texpr = texpr.typeSubst(ntenv3)
 	      val ntenv4 = ntenv3.withVarToMold(name, final_texpr.typ)
-	      (TDef(final_texpr.typ, name, final_texpr), ntenv4)
+	      (TVal(final_texpr.typ, name, final_texpr), ntenv4)
+	    }
+	    
+	    case DoBlock(exprs) => {
+	      var ntenv = type_env
+	      val typed_exprs = exprs map (e => {
+	        val (ne, ntenvv) = e.type_infer(ntenv)
+	        ntenv = ntenvv
+	        ne
+	      })
+	      (TDoBlock(typed_exprs.last.typ, typed_exprs).typeSubst(ntenv.simplify), type_env)
 	    }
 
 	    case IfExpr(cond, body, alt) => {
@@ -155,8 +169,6 @@ object Typing {
 	        case (name, ptype) => ntenv.withAlias(name, ptype)
 	      })
 	      
-	      println("DAST ENV : ", ntenv)
-	      
           (TValUnit, ntenv)
 	    }
 	    
@@ -173,7 +185,7 @@ object Typing {
 	    case ParametricTypeInst(tn, ts) => {
 	      val types = typesFromExprs(ts)
 	      val ptype_instance = type_env.getAliasRaw(tn) match {
-	        case t : ParametricType => if (type_env.in_type_def) t.parametrize(types) else t.instanciate(types)
+	        case t : ParametricType => t.parametrize(types)
 	        case _ => throw new Exception("Trying to instanciate a non parametric type")
 	      }
 	      (TType(ptype_instance), type_env)
@@ -193,10 +205,11 @@ object Typing {
 	          var ntenv = type_env
 	          sum_type.ts foreach {
 	            case (cons, typ) => {
-	              val fntype = new TypeFunction(List(typ, sum_type))
+	              val psumtype = type_env.getAliasRaw(name).asInstanceOf[ParametricType].getParametrized()
+	              val fntype = new TypeFunction(List(typ, psumtype))
 	              // The type of the constructors need to be polymorphic
 	              // in case of parametric sum types
-	              ntenv = ntenv.withTCons(cons, sum_type)
+	              ntenv = ntenv.withTCons(cons, psumtype)
 	              			   .withVarToMold(cons, fntype)
 	            }
 	          }
@@ -208,6 +221,7 @@ object Typing {
 	      
 	    case SimpleMatchExpr(v) => {
 	      val ntenv = type_env.withVarToPoly(v)
+	      println("IN SIMPLE MATCH EXPR", v, ntenv.getVarType(v))
 	      (TValUnit, type_env.match_type match {
 	        case Some(t) => ntenv.unifyVar(v, t)
 	        case None => ntenv
@@ -228,8 +242,9 @@ object Typing {
 	    
 	    case ConsMatchExpr(cons, vars) => {
 	      val sum_type = type_env.tconsmap(cons)
-	    		  				 .getFresh(new HashMap[Type, Type])._1
-	      val cons_type = sum_type.getTypeForCons(cons)
+	    		  				 .getFresh(new HashMap[Type, Type])._1.asInstanceOf[WrapperType]
+	      println("IN CONSMATCHEXPR", sum_type)
+	      val cons_type = sum_type.getType.asInstanceOf[SumType].getTypeForCons(cons)
 	      val ntenv = if (vars.length > 1) {
 	        cons_type match {
 	          case ProductType(types) => (vars zip types).foldLeft(type_env)((tenv, v) => 

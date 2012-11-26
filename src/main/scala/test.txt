@@ -107,5 +107,5 @@ end
 
 function sum_tree tr -> match tr with
 	Node(t1,t2) -> + (sum_tree t1) (sum_tree t2)
-	Leaf(i) -> i
+	Leaf(i) -> + i 1
 end

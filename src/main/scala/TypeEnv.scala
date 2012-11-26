@@ -23,7 +23,7 @@ object TypeEnv {
   type VarMap = Map[String, AbstractType]
   type TypeMap = HashMap[Type, Type]
   type AliasMap = HashMap[String, AbstractType]
-  type TypeConsMap = HashMap[String, SumType]
+  type TypeConsMap = HashMap[String, Type]
   type ConstraintsMap = HashMap[Type, Set[String]]
   type ClassImplMap = HashMap[Type, Set[String]]
   type TypeClassesMap = HashMap[String, TypeClass]
@@ -82,7 +82,7 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
   
   def withTypeName(name : String) = copyWith(ctypename = Option(name))
   
-  def withTCons(s : String, typ : SumType) = 
+  def withTCons(s : String, typ : Type) = 
     copyWith(tconsmap = tconsmap + (s -> typ))
   
   def withAliasToMold(name : String, t : Type) = copyWith(amap = amap + (name -> new TypeMold(t)))
@@ -134,7 +134,7 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
    * you get the following
    * A -> C, B -> C
    */
-  def simplify() : TypeEnv = {
+  def _simplify() : TypeEnv = {
     var has_changed = true
     var ntmap = tmap
     while (has_changed) {
@@ -152,6 +152,15 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
     copyWith(tmap = ntmap)
   }
   
+  def simplify() : TypeEnv = {
+    val new_tenv = _simplify()
+    var ntmap = new_tenv.tmap
+    new_tenv.tmap foreach {
+      case (t1, t2) => ntmap = ntmap + (t1 -> t2.concretize(new_tenv))
+    }
+    new_tenv.copyWith(tmap = ntmap)
+  }
+  
    def unifyVar(v : String, t : Type) = unifyTypes(getVarType(v), t)
   
   /* Unify types t1 and t2. It means that refering
@@ -159,9 +168,7 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
    * This function handle type checking (checking that
    * t1 and t2 are indeed unifiable or not)
    */
-  def unifyTypes(tt1: Type, tt2: Type, cu_sum_type : Option[SumType] = None) : TypeEnv = {
-    val t1 = tt1.get
-    val t2 = tt2.get
+  def unifyTypes(t1: Type, t2: Type, cu_sum_type : Option[SumType] = None) : TypeEnv = {
     println("IN UNIFY ", t1, t2)
     
     def chain_unify(tpoly: TypePoly, tpoly_binding: Type) = 
@@ -213,14 +220,18 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
       case SumType(name, ts) => t2 match {
         case tp2 : TypePoly => chain_unify(tp2, t1)
         case SumType(name2, ts2) =>
-          if (name == name2) cu_sum_type match {
-            case Some(st) if st.name == name2 => this
-            case _ => (ts.values zip ts2.values).foldLeft(this)((tenv, ts) => ts match {
-              case (tt1, tt2) => tenv.unifyTypes(tt1, tt2, Some(t1.asInstanceOf[SumType]))
-            })
-          }
+          if (name == name2) this
           else throw new Exception("Incompatible sum types")
-        case _ => throw new Exception("Incompatible types")
+      }
+      
+      case tt1 : ParametrizedType => t2 match {
+        case tt2 : ParametrizedType => {
+          var ntm = this
+          (tt1.ts zip tt2.ts) foreach { case (t1, t2) => ntm = ntm.unifyTypes(t1, t2) }
+          ntm
+        }
+        case tt2 : TypePoly => chain_unify(tt2, tt1)
+        case tt2 => unifyTypes(tt1.getType(), tt2)
       }
       
       case wt : WrappedType => unifyTypes(wt.get, t2, cu_sum_type)

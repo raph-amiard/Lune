@@ -3,7 +3,7 @@ import main.scala.Typing._
 import main.scala.Interpreter._
 
 object Main extends App {
-  val DO_EVAL = false
+  val DO_EVAL = true
   
   val type_env = new TypeEnv
   /*println(LuneParser("let a = 2 in 5"))
