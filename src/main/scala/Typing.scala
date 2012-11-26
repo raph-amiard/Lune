@@ -95,13 +95,14 @@ object Typing {
 	    }
 	    
 	    case DoBlock(exprs) => {
+	      val env_varmap = type_env.varmap
 	      var ntenv = type_env
 	      val typed_exprs = exprs map (e => {
 	        val (ne, ntenvv) = e.type_infer(ntenv)
 	        ntenv = ntenvv
 	        ne
 	      })
-	      (TDoBlock(typed_exprs.last.typ, typed_exprs).typeSubst(ntenv.simplify), type_env)
+	      (TDoBlock(typed_exprs.last.typ, typed_exprs).typeSubst(ntenv.simplify), ntenv.withVarMap(env_varmap))
 	    }
 
 	    case IfExpr(cond, body, alt) => {
@@ -141,6 +142,7 @@ object Typing {
 	      val types = defs_and_polys map {
 	        case (TypeDef(name, ptype_bindings, t), polytypes) => {
 	      
+	          val env_amap = ntenv.amap
 	          ntenv = (ptype_bindings zip polytypes).foldLeft(ntenv)((tenv, b) => b match {
 	            case (s, t) => tenv.withAlias(s, t)
 	          }).withTypeName(name)
@@ -149,7 +151,7 @@ object Typing {
 	          t.type_infer(ntenv.withTypeDef) match {
 	            case (TType(tt), nntenv) => {
 	              println("IN TYPE INFER" , nntenv)
-	              ntenv = nntenv
+	              ntenv = nntenv.withAliasMap(env_amap)
 	              val subt = nntenv.amap(name)
 	              subt match {
 	                case subtt : ParametricType => subtt.t = Some(tt)
@@ -173,11 +175,11 @@ object Typing {
 	    }
 	    
 	    case NamedTypeExpr(t) => (TType(t match {
-	      case "int" => TypeInt
-	      case "double" => TypeDouble
-	      case "float" => TypeDouble
-	      case "bool" => TypeBool
-	      case "nil" => TypeUnit
+	      case "Int" => TypeInt
+	      case "Double" => TypeDouble
+	      case "Float" => TypeDouble
+	      case "Bool" => TypeBool
+	      case "Nil" => TypeUnit
 	      case x => if (type_env.in_type_def) type_env.getAliasRaw(x).asInstanceOf[Type]
 	                else type_env.getAlias(x)
 	    }), type_env)

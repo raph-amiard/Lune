@@ -88,7 +88,8 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
   def withAliasToMold(name : String, t : Type) = copyWith(amap = amap + (name -> new TypeMold(t)))
   def withAliasToPoly(name : String) = copyWith(amap = amap + (name -> new TypePoly))
   def withAlias(name : String, t : AbstractType) = copyWith(amap = amap + (name -> t))
-  def getAlias(name : String) = amap(name).get()
+  def withAliasMap(new_amap : TypeEnv.AliasMap) = copyWith(amap = new_amap)
+  def getAlias(name : String) = amap(name).get
   def getAliasRaw(name : String) = amap(name)
   
   def getVarType(binding : String) = varmap(binding).get()
@@ -101,6 +102,8 @@ case class TypeEnv(varmap : TypeEnv.VarMap,
 
   def withVarToMold(binding: String, t: Type) : TypeEnv = 
     copyWith(varmap = varmap + (binding -> new TypeMold(t)))
+    
+  def withVarMap(new_varmap : TypeEnv.VarMap) = copyWith(varmap = new_varmap)
     
   def withTypeMapping(t1: Type, t2: Type) : TypeEnv = copyWith(tmap = tmap + (t1 -> t2))
   

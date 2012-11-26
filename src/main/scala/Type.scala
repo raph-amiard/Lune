@@ -96,11 +96,11 @@ case class ParametrizedType(ptype : ParametricType, ts : List[Type]) extends Wra
  * =================================================*/
 case class TypePrim() extends Type {
 }
-case object TypeInt extends TypePrim { override def toString() = "int"}
-case object TypeString extends TypePrim { override def toString() = "string"}
-case object TypeBool extends TypePrim { override def toString() = "bool"}
-case object TypeDouble extends TypePrim { override def toString() = "double"}
-case object TypeUnit extends TypePrim { override def toString() = "()"}
+case object TypeInt extends TypePrim { override def toString() = "Int"}
+case object TypeString extends TypePrim { override def toString() = "String"}
+case object TypeBool extends TypePrim { override def toString() = "Bool"}
+case object TypeDouble extends TypePrim { override def toString() = "Double"}
+case object TypeUnit extends TypePrim { override def toString() = "Nil"}
 
 /* ==================================================
  * Type Poly type definition
@@ -137,7 +137,7 @@ case class TypeFunction(ts: List[Type]) extends Type {
   assert(ts.length > 1)
   
   override def concretize(type_env : TypeEnv) : TypeFunction = {
-    println("IN TYPEFUNCTION CONCRETIZE : " + this)
+    println("IN TYPEFUNCTION CONCRETIZE : " + this + "ENV : " + type_env)
     val tf = new TypeFunction(ts.map(_.concretize(type_env)))
     println("OUT TYPEFUNCTION CONCRETIZE : " + tf)
     tf
